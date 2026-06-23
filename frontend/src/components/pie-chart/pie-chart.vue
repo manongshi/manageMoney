@@ -53,13 +53,17 @@ const gradient = computed(() => {
 
 <style scoped>
 .chart-wrap {
-  display: grid;
-  grid-template-columns: 240rpx minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 22rpx;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .pie {
+  flex: 0 0 auto;
   width: 240rpx;
   height: 240rpx;
   border-radius: 50%;
@@ -94,6 +98,8 @@ const gradient = computed(() => {
 }
 
 .legend {
+  flex: 1 1 280rpx;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12rpx;
@@ -101,7 +107,7 @@ const gradient = computed(() => {
 
 .legend-item {
   display: grid;
-  grid-template-columns: 18rpx 1fr auto;
+  grid-template-columns: 18rpx minmax(0, 1fr) auto;
   gap: 10rpx;
   align-items: center;
   color: #15211a;
@@ -122,5 +128,6 @@ const gradient = computed(() => {
 
 .legend-value {
   color: #69746d;
+  white-space: nowrap;
 }
 </style>

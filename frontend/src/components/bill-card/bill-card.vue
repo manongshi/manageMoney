@@ -37,6 +37,8 @@ defineEmits(['edit', 'delete'])
 
 <style scoped>
 .bill-card {
+  width: 100%;
+  min-width: 0;
   padding: 22rpx;
   border: 1rpx solid #dce4dd;
   border-radius: 8px;
@@ -48,9 +50,11 @@ defineEmits(['edit', 'delete'])
   align-items: flex-start;
   justify-content: space-between;
   gap: 16rpx;
+  min-width: 0;
 }
 
 .left {
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -58,9 +62,12 @@ defineEmits(['edit', 'delete'])
 }
 
 .remark {
+  display: block;
+  max-width: 100%;
   color: #15211a;
   font-size: 30rpx;
   font-weight: 800;
+  line-height: 1.3;
   word-break: break-word;
 }
 
@@ -71,8 +78,12 @@ defineEmits(['edit', 'delete'])
 
 .amount {
   flex-shrink: 0;
-  font-size: 34rpx;
+  max-width: 230rpx;
+  font-size: 32rpx;
   font-weight: 900;
+  line-height: 1.25;
+  text-align: right;
+  word-break: break-word;
 }
 
 .income {
@@ -85,6 +96,7 @@ defineEmits(['edit', 'delete'])
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 12rpx;
   margin-top: 18rpx;
@@ -92,7 +104,7 @@ defineEmits(['edit', 'delete'])
 
 .mini-btn {
   margin: 0;
-  min-width: 112rpx;
+  min-width: 104rpx;
   height: 58rpx;
   line-height: 58rpx;
   padding: 0 16rpx;

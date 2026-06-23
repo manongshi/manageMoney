@@ -82,9 +82,11 @@ onShow(load)
   display: flex;
   align-items: center;
   gap: 22rpx;
+  min-width: 0;
 }
 
 .avatar {
+  flex: 0 0 auto;
   width: 108rpx;
   height: 108rpx;
   border-radius: 8px;
@@ -98,14 +100,20 @@ onShow(load)
 }
 
 .profile-info {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8rpx;
 }
 
 .nickname {
+  display: block;
+  max-width: 100%;
   font-size: 36rpx;
   font-weight: 900;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .row {
@@ -113,8 +121,16 @@ onShow(load)
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 18rpx;
   border-bottom: 1rpx solid #eef3ef;
   font-size: 28rpx;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.row > text:last-child {
+  max-width: 460rpx;
+  text-align: right;
 }
 
 .row:last-child {

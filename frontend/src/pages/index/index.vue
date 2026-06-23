@@ -196,8 +196,12 @@ onShow(refresh)
 }
 
 .section-title {
+  display: block;
+  min-width: 0;
   font-size: 30rpx;
   font-weight: 900;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .warn {
@@ -206,6 +210,7 @@ onShow(refresh)
 
 .small-btn,
 .text-btn {
+  flex: 0 0 auto;
   margin: 0;
   height: 58rpx;
   line-height: 58rpx;
@@ -215,6 +220,7 @@ onShow(refresh)
   background: #fff;
   color: #15211a;
   font-size: 24rpx;
+  white-space: nowrap;
 }
 
 .text-btn {

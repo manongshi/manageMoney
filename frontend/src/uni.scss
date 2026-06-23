@@ -9,6 +9,11 @@
   --expense: #c2410c;
   --accent: #1f6f78;
   --warning: #b45309;
+  --safe-bottom: env(safe-area-inset-bottom);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 page {
@@ -16,11 +21,15 @@ page {
   background: var(--bg);
   color: var(--text);
   font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  overflow-x: hidden;
 }
 
 .page {
   min-height: 100vh;
-  padding: 24rpx;
+  width: 100%;
+  max-width: 750rpx;
+  margin: 0 auto;
+  padding: 24rpx 24rpx calc(40rpx + var(--safe-bottom));
   box-sizing: border-box;
 }
 
@@ -41,17 +50,33 @@ page {
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.title-row > view {
+  min-width: 0;
+  flex: 1 1 0;
 }
 
 .page-title {
+  display: block;
+  max-width: 100%;
   font-size: 42rpx;
   font-weight: 800;
   letter-spacing: 0;
+  line-height: 1.18;
+  word-break: break-word;
 }
 
 .muted {
+  display: inline-block;
+  max-width: 100%;
   color: var(--muted);
   font-size: 24rpx;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .grid-2 {
@@ -61,20 +86,27 @@ page {
 }
 
 .metric {
+  min-width: 0;
   padding: 20rpx;
   border-radius: 8px;
   background: var(--panel-soft);
 }
 
 .metric-label {
+  display: block;
   color: var(--muted);
   font-size: 24rpx;
+  line-height: 1.35;
 }
 
 .metric-value {
+  display: block;
+  max-width: 100%;
   margin-top: 8rpx;
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 800;
+  line-height: 1.18;
+  word-break: break-word;
 }
 
 .income {
@@ -100,6 +132,7 @@ page {
 .textarea,
 .picker-display {
   width: 100%;
+  max-width: 100%;
   min-height: 76rpx;
   border: 1rpx solid var(--line);
   border-radius: 8px;
@@ -108,21 +141,25 @@ page {
   background: #fff;
   color: var(--text);
   font-size: 28rpx;
+  line-height: 1.4;
 }
 
 .textarea {
   min-height: 120rpx;
   padding-top: 18rpx;
+  padding-bottom: 18rpx;
 }
 
 .button-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
   margin-top: 22rpx;
 }
 
 .btn {
-  flex: 1;
+  flex: 1 1 220rpx;
+  min-width: 0;
   min-height: 76rpx;
   border-radius: 8px;
   border: 1rpx solid transparent;
@@ -131,6 +168,8 @@ page {
   justify-content: center;
   font-weight: 700;
   font-size: 28rpx;
+  line-height: 1.25;
+  padding: 0 18rpx;
 }
 
 .btn-primary {
@@ -152,6 +191,7 @@ page {
 
 .segmented {
   display: flex;
+  width: 100%;
   border: 1rpx solid var(--line);
   border-radius: 8px;
   overflow: hidden;
@@ -159,6 +199,7 @@ page {
 
 .segment {
   flex: 1;
+  min-width: 0;
   min-height: 70rpx;
   display: flex;
   align-items: center;
@@ -166,6 +207,8 @@ page {
   background: #fff;
   color: var(--muted);
   font-size: 26rpx;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .segment.active-income {

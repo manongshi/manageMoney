@@ -44,13 +44,16 @@ const normalized = computed(() => props.data.map((item) => {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
+  width: 100%;
+  min-width: 0;
 }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 76rpx minmax(0, 1fr) 108rpx;
+  grid-template-columns: 72rpx minmax(0, 1fr) 116rpx;
   align-items: center;
   gap: 12rpx;
+  min-width: 0;
 }
 
 .label,
@@ -61,6 +64,8 @@ const normalized = computed(() => props.data.map((item) => {
 
 .value {
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .track {

@@ -107,6 +107,7 @@ onShow(loadInfo)
 }
 
 .small-btn {
+  flex: 0 0 auto;
   margin: 0;
   height: 58rpx;
   line-height: 58rpx;
@@ -116,6 +117,7 @@ onShow(loadInfo)
   background: #fff;
   color: #15211a;
   font-size: 24rpx;
+  white-space: nowrap;
 }
 
 .budget-card {
@@ -125,9 +127,12 @@ onShow(loadInfo)
 }
 
 .budget-percent {
-  font-size: 72rpx;
+  max-width: 100%;
+  font-size: 68rpx;
   font-weight: 900;
   color: #15211a;
+  line-height: 1.1;
+  word-break: break-word;
 }
 
 .progress {
@@ -145,11 +150,14 @@ onShow(loadInfo)
 
 .budget-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 24rpx;
 }
 
 .budget-row > view {
+  flex: 1 1 240rpx;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8rpx;
@@ -158,6 +166,8 @@ onShow(loadInfo)
 .budget-number {
   font-size: 34rpx;
   font-weight: 900;
+  line-height: 1.25;
+  word-break: break-word;
 }
 
 .alert {
@@ -167,6 +177,7 @@ onShow(loadInfo)
   color: #c2410c;
   font-size: 26rpx;
   font-weight: 800;
+  line-height: 1.35;
 }
 
 .no-top {

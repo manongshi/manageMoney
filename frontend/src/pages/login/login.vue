@@ -74,7 +74,10 @@ async function submit() {
 <style scoped>
 .login-page {
   min-height: 100vh;
-  padding: 64rpx 32rpx;
+  width: 100%;
+  max-width: 750rpx;
+  margin: 0 auto;
+  padding: 56rpx 28rpx calc(44rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background:
     linear-gradient(140deg, rgba(31, 111, 120, 0.16), transparent 34%),
@@ -86,12 +89,13 @@ async function submit() {
   display: flex;
   flex-direction: column;
   gap: 14rpx;
-  margin: 70rpx 0 48rpx;
+  margin: 54rpx 0 40rpx;
+  min-width: 0;
 }
 
 .brand-mark {
-  width: 88rpx;
-  height: 88rpx;
+  width: 84rpx;
+  height: 84rpx;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -103,14 +107,19 @@ async function submit() {
 }
 
 .brand-title {
-  font-size: 54rpx;
+  font-size: 50rpx;
   font-weight: 900;
   letter-spacing: 0;
+  line-height: 1.16;
+  word-break: break-word;
 }
 
 .brand-subtitle {
+  max-width: 580rpx;
   color: #69746d;
   font-size: 28rpx;
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .login-panel {

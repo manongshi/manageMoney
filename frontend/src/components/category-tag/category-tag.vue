@@ -23,6 +23,7 @@ defineProps({
   display: inline-flex;
   align-items: center;
   gap: 8rpx;
+  max-width: 100%;
   min-height: 48rpx;
   padding: 0 16rpx;
   border: 1rpx solid;
@@ -30,9 +31,11 @@ defineProps({
   background: #fff;
   font-size: 24rpx;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .dot {
+  flex: 0 0 auto;
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;

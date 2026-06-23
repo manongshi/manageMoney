@@ -222,13 +222,18 @@ onShow(loadBills)
 }
 
 .section-title {
+  display: block;
+  min-width: 0;
   font-size: 30rpx;
   font-weight: 900;
+  line-height: 1.3;
+  word-break: break-word;
 }
 
 .small-btn,
 .text-btn,
 .filter-chip {
+  flex: 0 0 auto;
   margin: 0;
   height: 58rpx;
   line-height: 58rpx;
@@ -238,6 +243,7 @@ onShow(loadBills)
   background: #fff;
   color: #15211a;
   font-size: 24rpx;
+  white-space: nowrap;
 }
 
 .text-btn {
@@ -247,13 +253,14 @@ onShow(loadBills)
 
 .filter-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
   margin-top: 16rpx;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .filter-chip {
-  white-space: nowrap;
+  max-width: 100%;
 }
 
 .no-top {
