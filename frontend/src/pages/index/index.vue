@@ -1,111 +1,74 @@
 <template>
-  <view class="page">
-    <view class="section title-row">
+  <view class="page voice-home">
+    <view class="home-hero section">
       <view>
+        <text class="eyebrow">Voice Ledger</text>
         <text class="page-title">今日账本</text>
-        <text class="muted block">连续记账 {{ dashboard.continuous_days || 0 }} 天</text>
+        <text class="muted block">说一句消费，自动整理成账单</text>
       </view>
-      <button class="small-btn" @click="refresh">刷新</button>
+      <button class="small-btn refresh-btn" @click="refresh">刷新</button>
+    </view>
+
+    <view class="section balance-panel">
+      <text class="metric-label">本月结余</text>
+      <text class="balance-value">¥{{ money(dashboard.balance) }}</text>
+      <view class="balance-meta">
+        <text>本月收入 ¥{{ money(dashboard.month_income) }}</text>
+        <text>本月支出 ¥{{ money(dashboard.month_expense) }}</text>
+      </view>
     </view>
 
     <view class="section grid-2">
-      <view class="metric">
+      <view class="metric soft-metric">
         <text class="metric-label">今日支出</text>
         <text class="metric-value expense">¥{{ money(dashboard.today_expense) }}</text>
       </view>
-      <view class="metric">
+      <view class="metric soft-metric">
         <text class="metric-label">今日收入</text>
         <text class="metric-value income">¥{{ money(dashboard.today_income) }}</text>
       </view>
-      <view class="metric">
-        <text class="metric-label">本月结余</text>
-        <text class="metric-value">¥{{ money(dashboard.balance) }}</text>
+      <view class="metric soft-metric">
+        <text class="metric-label">连续记账</text>
+        <text class="metric-value">{{ dashboard.continuous_days || 0 }} 天</text>
       </view>
-      <view class="metric">
-        <text class="metric-label">预算使用</text>
-        <text class="metric-value warn">{{ money(dashboard.budget_percent) }}%</text>
+      <view class="metric soft-metric">
+        <text class="metric-label">本月支出</text>
+        <text class="metric-value expense">¥{{ money(dashboard.month_expense) }}</text>
       </view>
     </view>
 
-    <view class="section panel voice-panel">
-      <view class="voice-copy">
-        <text class="section-title">语音入账</text>
-        <text class="muted block">说出一句账单，系统会识别成文字并交给 AI 入库</text>
-      </view>
+    <view class="section hint-panel">
+      <text class="section-title">一句话就够了</text>
+      <text class="muted block">例如：今天买咖啡花了 19 元、工资到账 8000 元。</text>
+    </view>
 
-      <view class="voice-action">
-        <button
-          :class="['mic-button', recording ? 'is-recording' : '']"
-          @click="toggleVoice"
-        >
-          <text class="mic-dot"></text>
-          <text>{{ recording ? '停止' : '说话' }}</text>
-        </button>
-        <text class="voice-status">{{ voiceStatus }}</text>
-      </view>
-
-      <view class="transcript-card">
-        <text class="transcript-label">识别文字</text>
+    <view class="voice-dock">
+      <view class="transcript-bar">
         <text :class="['transcript-text', voiceDisplay ? '' : 'is-empty']">
-          {{ voiceDisplay || '点击“说话”后，说出：今天中午吃麻辣烫花了25块' }}
+          {{ voiceDisplay || voiceStatus }}
         </text>
       </view>
 
-      <view class="button-row no-bottom">
+      <view class="dock-row">
         <button
-          class="btn btn-primary"
+          :class="['hold-button', recording ? 'is-recording' : '']"
+          @touchstart.prevent="startVoice"
+          @touchend.prevent="stopVoice"
+          @mousedown.prevent="startVoice"
+          @mouseup.prevent="stopVoice"
+          @mouseleave="stopVoice"
+          @click="handleVoiceClick"
+        >
+          <text>{{ recording ? '松开结束' : '按住说话' }}</text>
+        </button>
+        <button
+          class="send-button"
           :disabled="saving || !voiceDisplay"
           @click="submitVoiceBill"
         >
-          {{ saving ? '正在入账' : 'AI识别并入账' }}
-        </button>
-        <button class="btn btn-secondary" :disabled="!voiceText && !lastRecord" @click="clearVoice">
-          清空
+          {{ saving ? '入账中' : '整理入账' }}
         </button>
       </view>
-    </view>
-
-    <view v-if="lastRecord" class="section panel result-panel">
-      <view class="title-row">
-        <text class="section-title">本次入账</text>
-        <button class="text-btn" @click="goStatistics">查看统计</button>
-      </view>
-      <view class="record-grid">
-        <view class="record-item">
-          <text class="record-label">金额</text>
-          <text :class="['record-value', lastRecord.bill.bill_type === 'income' ? 'income' : 'expense']">
-            ¥{{ money(lastRecord.bill.amount) }}
-          </text>
-        </view>
-        <view class="record-item">
-          <text class="record-label">分类</text>
-          <text class="record-value">{{ lastRecord.bill.category?.name || '-' }}</text>
-        </view>
-        <view class="record-item">
-          <text class="record-label">类型</text>
-          <text class="record-value">{{ lastRecord.bill.bill_type === 'income' ? '收入' : '支出' }}</text>
-        </view>
-        <view class="record-item">
-          <text class="record-label">备注</text>
-          <text class="record-value">{{ lastRecord.bill.remark || lastRecord.parsed.remark }}</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="section panel">
-      <view class="title-row">
-        <text class="section-title">最近账单</text>
-        <button class="text-btn" @click="goBills">查看全部</button>
-      </view>
-      <view v-if="!dashboard.recent_bills?.length" class="empty">暂无账单</view>
-      <bill-card
-        v-for="bill in dashboard.recent_bills"
-        :key="bill.id"
-        :bill="bill"
-        class="bill-gap"
-        @edit="goBills"
-        @delete="goBills"
-      />
     </view>
   </view>
 </template>
@@ -113,7 +76,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import BillCard from '../../components/bill-card/bill-card.vue'
 import { recordBillText } from '../../api/ai'
 import { getDashboard } from '../../api/statistics'
 import { useUserStore } from '../../store/user'
@@ -123,12 +85,12 @@ const userStore = useUserStore()
 const dashboard = ref({})
 const voiceText = ref('')
 const interimText = ref('')
-const voiceStatus = ref('点击说话开始语音记账')
+const voiceStatus = ref('按住下方按钮开始语音记账')
 const recording = ref(false)
 const saving = ref(false)
 const voiceSupported = ref(false)
-const lastRecord = ref(null)
 let recognition = null
+let lastTouchAt = 0
 
 const voiceDisplay = computed(() => {
   return [voiceText.value, interimText.value].filter(Boolean).join(' ').trim()
@@ -183,19 +145,16 @@ function setupSpeechRecognition() {
   recognition.onend = () => {
     recording.value = false
     interimText.value = ''
-    voiceStatus.value = voiceText.value ? '识别完成，可以入账' : '点击说话开始语音记账'
+    voiceStatus.value = voiceText.value ? '识别完成，可以入账' : '按住下方按钮开始语音记账'
   }
 }
 
-function toggleVoice() {
+function startVoice() {
   if (!voiceSupported.value || !recognition) {
     uni.showToast({ title: '当前环境不支持语音识别', icon: 'none' })
     return
   }
-  if (recording.value) {
-    recognition.stop()
-    return
-  }
+  if (recording.value) return
   voiceText.value = ''
   interimText.value = ''
   try {
@@ -203,6 +162,22 @@ function toggleVoice() {
   } catch (error) {
     voiceStatus.value = '语音识别启动失败'
     uni.showToast({ title: error.message || '语音识别启动失败', icon: 'none' })
+  }
+}
+
+function stopVoice() {
+  lastTouchAt = Date.now()
+  if (recognition && recording.value) {
+    recognition.stop()
+  }
+}
+
+function handleVoiceClick() {
+  if (Date.now() - lastTouchAt < 500) return
+  if (recording.value) {
+    stopVoice()
+  } else {
+    startVoice()
   }
 }
 
@@ -227,7 +202,7 @@ async function submitVoiceBill() {
   }
   saving.value = true
   try {
-    lastRecord.value = await recordBillText(text)
+    await recordBillText(text)
     voiceText.value = ''
     interimText.value = ''
     voiceStatus.value = '已入账，统计已更新'
@@ -240,21 +215,6 @@ async function submitVoiceBill() {
   }
 }
 
-function clearVoice() {
-  voiceText.value = ''
-  interimText.value = ''
-  lastRecord.value = null
-  voiceStatus.value = voiceSupported.value ? '点击说话开始语音记账' : '当前浏览器不支持语音识别'
-}
-
-function goBills() {
-  uni.switchTab({ url: '/pages/bill/bill' })
-}
-
-function goStatistics() {
-  uni.switchTab({ url: '/pages/statistics/statistics' })
-}
-
 onMounted(setupSpeechRecognition)
 onBeforeUnmount(() => {
   if (recognition && recording.value) {
@@ -265,169 +225,184 @@ onShow(refresh)
 </script>
 
 <style scoped>
+.voice-home {
+  min-height: 100vh;
+  padding-bottom: calc(344rpx + env(safe-area-inset-bottom));
+}
+
 .block {
   display: block;
   margin-top: 8rpx;
 }
 
+.home-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+  min-width: 0;
+  padding: 22rpx 0 4rpx;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 10rpx;
+  color: #a76658;
+  font-size: 22rpx;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.refresh-btn {
+  align-self: flex-start;
+}
+
+.balance-panel {
+  padding: 34rpx 30rpx;
+  border: 1rpx solid rgba(202, 150, 136, 0.36);
+  border-radius: 8px;
+  background:
+    linear-gradient(140deg, rgba(196, 132, 115, 0.2), transparent 38%),
+    linear-gradient(320deg, rgba(231, 207, 191, 0.75), rgba(255, 253, 251, 0.96));
+  box-shadow: 0 22rpx 56rpx rgba(122, 73, 59, 0.1);
+}
+
+.balance-value {
+  display: block;
+  margin-top: 12rpx;
+  color: #332522;
+  font-size: 56rpx;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.balance-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 24rpx;
+  color: #7f665e;
+  font-size: 24rpx;
+  line-height: 1.35;
+}
+
+.soft-metric {
+  border: 1rpx solid rgba(234, 219, 212, 0.9);
+  background: rgba(255, 253, 251, 0.84);
+}
+
+.hint-panel {
+  padding: 26rpx;
+  border: 1rpx dashed #d8bcb1;
+  border-radius: 8px;
+  background: rgba(255, 253, 251, 0.68);
+}
+
 .section-title {
   display: block;
   min-width: 0;
+  color: #332522;
   font-size: 30rpx;
   font-weight: 900;
   line-height: 1.3;
   word-break: break-word;
 }
 
-.warn {
-  color: #b45309;
-}
-
-.small-btn,
-.text-btn {
+.small-btn {
   flex: 0 0 auto;
   margin: 0;
   height: 58rpx;
   line-height: 58rpx;
-  padding: 0 18rpx;
-  border: 1rpx solid #dce4dd;
+  padding: 0 20rpx;
+  border: 1rpx solid #eadbd4;
   border-radius: 8px;
-  background: #fff;
-  color: #15211a;
+  background: #fffdfb;
+  color: #6f5048;
   font-size: 24rpx;
   white-space: nowrap;
 }
 
-.text-btn {
-  border: 0;
-  color: #1f6f78;
+.voice-dock {
+  position: fixed;
+  right: 0;
+  bottom: calc(98rpx + env(safe-area-inset-bottom));
+  left: 0;
+  z-index: 30;
+  width: 100%;
+  max-width: 750rpx;
+  margin: 0 auto;
+  padding: 18rpx 22rpx;
+  border-top: 1rpx solid rgba(216, 188, 177, 0.72);
+  background: rgba(255, 253, 251, 0.96);
+  box-shadow: 0 -18rpx 48rpx rgba(86, 54, 43, 0.1);
+  box-sizing: border-box;
 }
 
-.voice-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 24rpx;
-  background:
-    linear-gradient(145deg, rgba(31, 111, 120, 0.12), transparent 42%),
-    #fff;
-}
-
-.voice-copy {
-  min-width: 0;
-}
-
-.voice-action {
-  display: flex;
-  align-items: center;
-  gap: 22rpx;
-  min-width: 0;
-}
-
-.mic-button {
-  flex: 0 0 144rpx;
-  width: 144rpx;
-  height: 144rpx;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: #15211a;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  font-size: 24rpx;
-  font-weight: 800;
-  line-height: 1.2;
-  box-shadow: 0 18rpx 40rpx rgba(21, 33, 26, 0.2);
-}
-
-.mic-button.is-recording {
-  background: #c2410c;
-}
-
-.mic-dot {
-  width: 34rpx;
-  height: 50rpx;
-  border-radius: 999rpx;
-  border: 6rpx solid currentColor;
-  display: block;
-}
-
-.voice-status {
-  flex: 1 1 0;
-  min-width: 0;
-  color: #69746d;
-  font-size: 26rpx;
-  line-height: 1.45;
-  word-break: break-word;
-}
-
-.transcript-card {
-  border: 1rpx solid #dce4dd;
+.transcript-bar {
+  min-height: 62rpx;
+  padding: 16rpx 20rpx;
   border-radius: 8px;
-  padding: 22rpx;
-  background: #f8faf7;
-}
-
-.transcript-label,
-.record-label {
-  display: block;
-  color: #69746d;
-  font-size: 23rpx;
-  line-height: 1.3;
+  background: #f8eee9;
 }
 
 .transcript-text {
   display: block;
-  margin-top: 10rpx;
-  color: #15211a;
-  font-size: 30rpx;
-  font-weight: 800;
+  color: #332522;
+  font-size: 27rpx;
+  font-weight: 700;
   line-height: 1.45;
   word-break: break-word;
 }
 
 .transcript-text.is-empty {
-  color: #8a948c;
+  color: #8a736b;
   font-weight: 500;
 }
 
-.no-bottom {
-  margin-top: 0;
-}
-
-.result-panel {
-  border-color: rgba(22, 128, 60, 0.24);
-}
-
-.record-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.dock-row {
+  display: flex;
+  align-items: center;
   gap: 16rpx;
-  margin-top: 20rpx;
-}
-
-.record-item {
-  min-width: 0;
-  padding: 18rpx;
-  border-radius: 8px;
-  background: #eef3ef;
-}
-
-.record-value {
-  display: block;
-  margin-top: 8rpx;
-  color: #15211a;
-  font-size: 28rpx;
-  font-weight: 800;
-  line-height: 1.25;
-  word-break: break-word;
-}
-
-.bill-gap {
   margin-top: 16rpx;
 }
+
+.hold-button,
+.send-button {
+  margin: 0;
+  min-height: 82rpx;
+  border-radius: 8px;
+  border: 1rpx solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.hold-button {
+  flex: 1 1 auto;
+  background: #fff8f5;
+  border-color: #dcc4ba;
+  color: #332522;
+}
+
+.hold-button.is-recording {
+  background: #fff0eb;
+  border-color: #c68475;
+  color: #8f4f43;
+}
+
+.send-button {
+  flex: 0 0 184rpx;
+  background: linear-gradient(135deg, #8f4f43, #c68475);
+  color: #fff;
+  box-shadow: 0 12rpx 28rpx rgba(143, 79, 67, 0.22);
+}
+
+.send-button[disabled] {
+  opacity: 0.48;
+  box-shadow: none;
+}
+
 </style>

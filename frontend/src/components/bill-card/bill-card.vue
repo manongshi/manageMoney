@@ -40,9 +40,9 @@ defineEmits(['edit', 'delete'])
   width: 100%;
   min-width: 0;
   padding: 22rpx;
-  border: 1rpx solid #dce4dd;
+  border: 1rpx solid #eadbd4;
   border-radius: 8px;
-  background: #fff;
+  background: #fffdfb;
 }
 
 .main {
@@ -64,7 +64,7 @@ defineEmits(['edit', 'delete'])
 .remark {
   display: block;
   max-width: 100%;
-  color: #15211a;
+  color: #332522;
   font-size: 30rpx;
   font-weight: 800;
   line-height: 1.3;
@@ -72,7 +72,7 @@ defineEmits(['edit', 'delete'])
 }
 
 .time {
-  color: #69746d;
+  color: #8a736b;
   font-size: 24rpx;
 }
 
@@ -87,11 +87,11 @@ defineEmits(['edit', 'delete'])
 }
 
 .income {
-  color: #16803c;
+  color: #527c68;
 }
 
 .expense {
-  color: #c2410c;
+  color: #bd6f62;
 }
 
 .actions {
@@ -108,16 +108,16 @@ defineEmits(['edit', 'delete'])
   height: 58rpx;
   line-height: 58rpx;
   padding: 0 16rpx;
-  border: 1rpx solid #dce4dd;
+  border: 1rpx solid #eadbd4;
   border-radius: 8px;
-  background: #fff;
-  color: #15211a;
+  background: #fff8f5;
+  color: #6f5048;
   font-size: 24rpx;
 }
 
 .danger {
-  color: #c2410c;
-  border-color: #fed7aa;
-  background: #fff7ed;
+  color: #bd6f62;
+  border-color: #efcbc0;
+  background: #fff1ec;
 }
 </style>

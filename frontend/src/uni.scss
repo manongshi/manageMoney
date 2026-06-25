@@ -1,14 +1,14 @@
 :root {
-  --bg: #f5f7f4;
-  --panel: #ffffff;
-  --panel-soft: #eef3ef;
-  --text: #15211a;
-  --muted: #69746d;
-  --line: #dce4dd;
-  --income: #16803c;
-  --expense: #c2410c;
-  --accent: #1f6f78;
-  --warning: #b45309;
+  --bg: #fff8f5;
+  --panel: #fffdfb;
+  --panel-soft: #f8eee9;
+  --text: #332522;
+  --muted: #8a736b;
+  --line: #eadbd4;
+  --income: #527c68;
+  --expense: #bd6f62;
+  --accent: #a76658;
+  --warning: #a66c35;
   --safe-bottom: env(safe-area-inset-bottom);
 }
 
@@ -51,7 +51,7 @@ page {
   border: 1rpx solid var(--line);
   border-radius: 8px;
   padding: 24rpx;
-  box-shadow: 0 12rpx 36rpx rgba(21, 33, 26, 0.06);
+  box-shadow: 0 16rpx 42rpx rgba(86, 54, 43, 0.07);
 }
 
 .title-row {
@@ -182,7 +182,7 @@ page {
 }
 
 .btn-primary {
-  background: var(--text);
+  background: linear-gradient(135deg, #8f4f43, #c68475);
   color: #fff;
 }
 
@@ -193,8 +193,8 @@ page {
 }
 
 .btn-danger {
-  background: #fff4ef;
-  border-color: #fed7aa;
+  background: #fff1ec;
+  border-color: #efcbc0;
   color: var(--expense);
 }
 
@@ -221,13 +221,13 @@ page {
 }
 
 .segment.active-income {
-  background: #e8f7ed;
+  background: #edf6f0;
   color: var(--income);
   font-weight: 800;
 }
 
 .segment.active-expense {
-  background: #fff1e8;
+  background: #fff0eb;
   color: var(--expense);
   font-weight: 800;
 }
