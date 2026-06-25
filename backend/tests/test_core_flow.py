@@ -197,3 +197,20 @@ def test_statistics_budget_and_ai_parse(client: TestClient):
     assert parsed["category"] == "餐饮"
     assert parsed["bill_type"] == "expense"
     assert parsed["remark"] == "麻辣烫"
+
+    recorded = assert_success(
+        client.post(
+            "/ai/record",
+            headers=headers,
+            json={"text": "今天中午吃麻辣烫花了25块"},
+        )
+    )
+    assert recorded["parsed"]["amount"] == 25.0
+    assert recorded["parsed"]["category"] == "餐饮"
+    assert recorded["bill"]["amount"] == 25.0
+    assert recorded["bill"]["category"]["name"] == "餐饮"
+    assert recorded["bill"]["bill_type"] == "expense"
+
+    dashboard = assert_success(client.get("/statistics/dashboard", headers=headers))
+    assert dashboard["month_expense"] == 55.0
+    assert len(dashboard["recent_bills"]) == 3

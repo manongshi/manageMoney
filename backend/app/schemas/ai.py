@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from app.schemas.bill import BillOut
+
 
 class AIParseRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
@@ -13,3 +15,8 @@ class AIParseResult(BaseModel):
     bill_type: str
     remark: str
     confidence: float
+
+
+class AIRecordResult(BaseModel):
+    parsed: AIParseResult
+    bill: BillOut
