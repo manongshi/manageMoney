@@ -8,10 +8,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
 
 from scripts.migrate_sqlite_to_mysql import (  # noqa: E402
+    IdMaps,
     TABLE_ORDER,
     MysqlConfig,
     build_mysql_database_url,
     read_sqlite_counts,
+    rewrite_row_ids,
 )
 
 
@@ -49,3 +51,24 @@ def test_read_sqlite_counts_reports_required_tables(tmp_path):
         "bills": 1,
         "budgets": 0,
     }
+
+
+def test_rewrite_row_ids_regenerates_foreign_keys():
+    ids = iter([101, 201, 301, 401])
+    id_maps = IdMaps()
+    next_id = lambda: next(ids)
+
+    user = rewrite_row_ids("users", {"id": 1, "username": "u"}, id_maps, next_id)
+    category = rewrite_row_ids("categories", {"id": 2, "user_id": 1}, id_maps, next_id)
+    bill = rewrite_row_ids(
+        "bills",
+        {"id": 3, "user_id": 1, "category_id": 2},
+        id_maps,
+        next_id,
+    )
+    budget = rewrite_row_ids("budgets", {"id": 4, "user_id": 1}, id_maps, next_id)
+
+    assert user["id"] == 101
+    assert category == {"id": 201, "user_id": 101}
+    assert bill == {"id": 301, "user_id": 101, "category_id": 201}
+    assert budget == {"id": 401, "user_id": 101}

@@ -5,7 +5,8 @@ import os
 import re
 import sqlite3
 import sys
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import quote
 
@@ -26,6 +27,14 @@ class MysqlConfig:
     database: str
 
 
+@dataclass
+class IdMaps:
+    users: dict[int, int] = field(default_factory=dict)
+    categories: dict[int, int] = field(default_factory=dict)
+    bills: dict[int, int] = field(default_factory=dict)
+    budgets: dict[int, int] = field(default_factory=dict)
+
+
 def quote_mysql_identifier(name: str) -> str:
     if not IDENTIFIER_RE.fullmatch(name):
         raise ValueError(f"Unsafe MySQL identifier: {name}")
@@ -43,6 +52,20 @@ def build_mysql_database_url(config: MysqlConfig) -> str:
     password = quote(config.password, safe="")
     database = quote(config.database, safe="")
     return f"mysql+pymysql://{user}:{password}@{config.host}:{config.port}/{database}?charset=utf8mb4"
+
+
+def ensure_backend_path() -> None:
+    backend_root = Path(__file__).resolve().parents[1]
+    backend_root_text = str(backend_root)
+    if backend_root_text not in sys.path:
+        sys.path.insert(0, backend_root_text)
+
+
+def next_snowflake_id() -> int:
+    ensure_backend_path()
+    from app.core.snowflake import generate_snowflake_id
+
+    return generate_snowflake_id()
 
 
 def read_sqlite_counts(sqlite_path: Path, tables: tuple[str, ...] = TABLE_ORDER) -> dict[str, int]:
@@ -105,11 +128,7 @@ def create_mysql_database(config: MysqlConfig) -> None:
 
 
 def load_metadata(database_url: str):
-    backend_root = Path(__file__).resolve().parents[1]
-    backend_root_text = str(backend_root)
-    if backend_root_text not in sys.path:
-        sys.path.insert(0, backend_root_text)
-
+    ensure_backend_path()
     os.environ["DATABASE_URL"] = database_url
 
     import app.models  # noqa: F401
@@ -123,10 +142,47 @@ def sqlite_columns(connection: sqlite3.Connection, table_name: str) -> list[str]
     return [str(row[1]) for row in rows]
 
 
+def rewrite_row_ids(
+    table_name: str,
+    row: dict,
+    id_maps: IdMaps,
+    id_generator: Callable[[], int],
+) -> dict:
+    rewritten = dict(row)
+    old_id = int(rewritten["id"])
+    new_id = id_generator()
+    rewritten["id"] = new_id
+
+    if table_name == "users":
+        id_maps.users[old_id] = new_id
+        return rewritten
+
+    if table_name == "categories":
+        rewritten["user_id"] = id_maps.users[int(rewritten["user_id"])]
+        id_maps.categories[old_id] = new_id
+        return rewritten
+
+    if table_name == "bills":
+        rewritten["user_id"] = id_maps.users[int(rewritten["user_id"])]
+        rewritten["category_id"] = id_maps.categories[int(rewritten["category_id"])]
+        id_maps.bills[old_id] = new_id
+        return rewritten
+
+    if table_name == "budgets":
+        rewritten["user_id"] = id_maps.users[int(rewritten["user_id"])]
+        id_maps.budgets[old_id] = new_id
+        return rewritten
+
+    raise ValueError(f"Unsupported table for id rewrite: {table_name}")
+
+
 def copy_table_rows(
     sqlite_connection: sqlite3.Connection,
     mysql_connection,
     table_name: str,
+    id_maps: IdMaps,
+    regenerate_ids: bool,
+    id_generator: Callable[[], int],
 ) -> int:
     columns = sqlite_columns(sqlite_connection, table_name)
     if not columns:
@@ -141,36 +197,41 @@ def copy_table_rows(
     ).fetchall()
     if not rows:
         return 0
+    row_payloads = [
+        rewrite_row_ids(table_name, dict(row), id_maps, id_generator) if regenerate_ids else dict(row)
+        for row in rows
+    ]
 
     mysql_connection.execute(
         text(
             f"INSERT INTO {quote_mysql_identifier(table_name)} "
             f"({mysql_column_sql}) VALUES ({value_sql})"
         ),
-        [dict(row) for row in rows],
-    )
-    next_id = int(
-        mysql_connection.execute(
-            text(f"SELECT COALESCE(MAX(id), 0) + 1 FROM {quote_mysql_identifier(table_name)}")
-        ).scalar_one()
-    )
-    mysql_connection.execute(
-        text(f"ALTER TABLE {quote_mysql_identifier(table_name)} AUTO_INCREMENT = {max(next_id, 1)}")
+        row_payloads,
     )
     return len(rows)
 
 
-def copy_sqlite_to_mysql(sqlite_path: Path, target_engine: Engine) -> dict[str, int]:
+def copy_sqlite_to_mysql(
+    sqlite_path: Path,
+    target_engine: Engine,
+    regenerate_ids: bool = False,
+    id_generator: Callable[[], int] = next_snowflake_id,
+) -> dict[str, int]:
     sqlite_connection = sqlite3.connect(sqlite_path)
     sqlite_connection.row_factory = sqlite3.Row
     try:
         copied_counts: dict[str, int] = {}
+        id_maps = IdMaps()
         with target_engine.begin() as mysql_connection:
             for table_name in TABLE_ORDER:
                 copied_counts[table_name] = copy_table_rows(
                     sqlite_connection,
                     mysql_connection,
                     table_name,
+                    id_maps,
+                    regenerate_ids,
+                    id_generator,
                 )
         return copied_counts
     finally:
@@ -204,6 +265,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Drop and recreate the target app tables before copying data.",
     )
+    parser.add_argument(
+        "--regenerate-ids",
+        action="store_true",
+        help="Generate fresh snowflake IDs and rewrite foreign keys while copying data.",
+    )
     return parser.parse_args()
 
 
@@ -231,10 +297,11 @@ def main() -> int:
         metadata.drop_all(bind=target_engine)
     metadata.create_all(bind=target_engine)
 
-    copied_counts = copy_sqlite_to_mysql(sqlite_path, target_engine)
+    copied_counts = copy_sqlite_to_mysql(sqlite_path, target_engine, regenerate_ids=args.regenerate_ids)
     final_counts = read_mysql_counts(target_engine)
 
     print(f"SQLite counts: {sqlite_counts}")
+    print(f"Regenerated IDs: {args.regenerate_ids}")
     print(f"Copied counts: {copied_counts}")
     print(f"MySQL counts: {final_counts}")
     return 0

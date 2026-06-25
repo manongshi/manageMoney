@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class CategoryCreate(BaseModel):
@@ -29,3 +29,7 @@ class CategoryOut(BaseModel):
     sort_order: int
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("id", "user_id")
+    def serialize_id(self, value: int) -> str:
+        return str(value)

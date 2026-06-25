@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -14,8 +15,15 @@ sys.path.insert(0, str(BACKEND_ROOT))
 os.environ["DATABASE_URL"] = "sqlite:///./test_ai_account_book.db"
 os.environ["SECRET_KEY"] = "test-secret"
 
-from app.db import Base, engine  # noqa: E402
+from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models.bill import Bill  # noqa: E402
+from app.models.budget import Budget  # noqa: E402
+from app.models.category import Category  # noqa: E402
+from app.models.user import User  # noqa: E402
+
+
+MIN_SNOWFLAKE_ID = 10_000_000_000_000
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +68,61 @@ def login_headers(client: TestClient) -> dict[str, str]:
     )
     assert login_data["token"]
     return {"Authorization": f"Bearer {login_data['token']}"}
+
+
+def assert_api_snowflake_id(value):
+    assert isinstance(value, str)
+    assert int(value) >= MIN_SNOWFLAKE_ID
+
+
+def assert_db_snowflake_ids(values):
+    assert values
+    assert all(isinstance(value, int) for value in values)
+    assert all(value >= MIN_SNOWFLAKE_ID for value in values)
+
+
+def test_created_database_records_use_snowflake_ids(client: TestClient):
+    headers = login_headers(client)
+
+    profile = assert_success(client.get("/user/me", headers=headers))
+    assert_api_snowflake_id(profile["id"])
+
+    categories = assert_success(client.get("/category/list?type=expense", headers=headers))
+    assert categories
+    for category in categories:
+        assert_api_snowflake_id(category["id"])
+        assert category["user_id"] == profile["id"]
+
+    food_id = categories[0]["id"]
+    bill = assert_success(
+        client.post(
+            "/bill/add",
+            headers=headers,
+            json={
+                "amount": 20,
+                "category_id": food_id,
+                "bill_type": "expense",
+                "remark": "snowflake-id-check",
+            },
+        )
+    )
+    assert_api_snowflake_id(bill["id"])
+    assert bill["user_id"] == profile["id"]
+    assert bill["category_id"] == food_id
+
+    assert_success(
+        client.post(
+            "/budget/save",
+            headers=headers,
+            json={"month": "2026-06", "month_budget": 3000},
+        )
+    )
+
+    with SessionLocal() as db:
+        assert_db_snowflake_ids(db.scalars(select(User.id)).all())
+        assert_db_snowflake_ids(db.scalars(select(Category.id)).all())
+        assert_db_snowflake_ids(db.scalars(select(Bill.id)).all())
+        assert_db_snowflake_ids(db.scalars(select(Budget.id)).all())
 
 
 def test_register_login_profile_and_default_categories(client: TestClient):

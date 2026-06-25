@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from app.schemas.category import CategoryOut
 
@@ -32,3 +32,7 @@ class BillOut(BaseModel):
     category: CategoryOut
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("id", "user_id", "category_id")
+    def serialize_id(self, value: int) -> str:
+        return str(value)

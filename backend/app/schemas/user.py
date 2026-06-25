@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class RegisterRequest(BaseModel):
@@ -30,3 +30,7 @@ class UserOut(BaseModel):
     create_time: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("id")
+    def serialize_id(self, value: int) -> str:
+        return str(value)
