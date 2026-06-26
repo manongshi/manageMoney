@@ -168,15 +168,6 @@ class ApiClient {
         .toList();
   }
 
-  Future<List<TrendPoint>> trendStats(String range) async {
-    final data = await _request('/statistics/trend', query: {'range': range});
-    return (data as List? ?? [])
-        .map(
-          (item) => TrendPoint.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
-        .toList();
-  }
-
   Future<BudgetInfo> budget(String month) async {
     final data = await _request('/budget/info', query: {'month': month});
     return BudgetInfo.fromJson(Map<String, dynamic>.from(data as Map));

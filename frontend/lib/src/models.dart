@@ -248,26 +248,3 @@ class CategoryStat {
     );
   }
 }
-
-class TrendPoint {
-  const TrendPoint({
-    required this.label,
-    required this.income,
-    required this.expense,
-    required this.balance,
-  });
-
-  final String label;
-  final double income;
-  final double expense;
-  final double balance;
-
-  factory TrendPoint.fromJson(Map<String, dynamic> json) {
-    return TrendPoint(
-      label: readString(json['label']),
-      income: readDouble(json['income']),
-      expense: readDouble(json['expense']),
-      balance: readDouble(json['balance']),
-    );
-  }
-}

@@ -26,7 +26,6 @@ class AppController extends ChangeNotifier {
   MoneyStats dayStats = MoneyStats.empty();
   MoneyStats monthStats = MoneyStats.empty();
   List<CategoryStat> categoryStats = [];
-  List<TrendPoint> trendStats = [];
 
   bool get isLoggedIn => token != null && token!.isNotEmpty;
 
@@ -178,19 +177,17 @@ class AppController extends ChangeNotifier {
     });
   }
 
-  Future<void> loadStatistics({String? month, String range = '7d'}) async {
+  Future<void> loadStatistics({String? month}) async {
     final targetMonth = month ?? currentMonth();
     await _run(() async {
       final results = await Future.wait([
         api.dayStats(currentDate()),
         api.monthStats(targetMonth),
         api.categoryStats(month: targetMonth, billType: 'expense'),
-        api.trendStats(range),
       ]);
       dayStats = results[0] as MoneyStats;
       monthStats = results[1] as MoneyStats;
       categoryStats = results[2] as List<CategoryStat>;
-      trendStats = results[3] as List<TrendPoint>;
     });
   }
 

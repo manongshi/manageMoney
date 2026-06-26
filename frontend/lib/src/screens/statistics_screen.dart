@@ -19,7 +19,6 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   final _month = TextEditingController(text: currentMonth());
-  String _range = '7d';
 
   @override
   void initState() {
@@ -48,33 +47,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
         children: [
           AppCard(
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _month,
-                    decoration: const InputDecoration(labelText: '月份'),
-                    onSubmitted: (_) => _load(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 120,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _range,
-                    decoration: const InputDecoration(labelText: '趋势'),
-                    items: const [
-                      DropdownMenuItem(value: '7d', child: Text('7天')),
-                      DropdownMenuItem(value: '30d', child: Text('30天')),
-                      DropdownMenuItem(value: '12m', child: Text('12月')),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _range = value ?? '7d');
-                      _load();
-                    },
-                  ),
-                ),
-              ],
+            child: TextField(
+              controller: _month,
+              decoration: const InputDecoration(labelText: '月份'),
+              onSubmitted: (_) => _load(),
             ),
           ),
           const SectionGap(),
@@ -132,25 +108,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               ],
             ),
           ),
-          const SectionGap(),
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '趋势',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 150,
-                  child: TrendChart(points: controller.trendStats),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -158,10 +115,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   Future<void> _load() async {
     try {
-      await widget.controller.loadStatistics(
-        month: _month.text.trim(),
-        range: _range,
-      );
+      await widget.controller.loadStatistics(month: _month.text.trim());
     } catch (error) {
       if (!mounted) return;
       showAppMessage(context, error.toString());
@@ -200,75 +154,5 @@ class _CategoryBar extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class TrendChart extends StatelessWidget {
-  const TrendChart({required this.points, super.key});
-
-  final List<TrendPoint> points;
-
-  @override
-  Widget build(BuildContext context) {
-    if (points.isEmpty) {
-      return const Center(child: Text('暂无趋势数据'));
-    }
-    return CustomPaint(
-      painter: _TrendPainter(points),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _TrendPainter extends CustomPainter {
-  const _TrendPainter(this.points);
-
-  final List<TrendPoint> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final maxValue = points
-        .expand((point) => [point.income, point.expense])
-        .fold<double>(1, math.max);
-    final incomePaint = Paint()
-      ..color = AppColors.income
-      ..strokeWidth = 2.4
-      ..style = PaintingStyle.stroke;
-    final expensePaint = Paint()
-      ..color = AppColors.expense
-      ..strokeWidth = 2.4
-      ..style = PaintingStyle.stroke;
-    final gridPaint = Paint()
-      ..color = AppColors.border
-      ..strokeWidth = 1;
-
-    for (var i = 0; i <= 3; i++) {
-      final y = size.height * i / 3;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    Path pathFor(double Function(TrendPoint) pick) {
-      final path = Path();
-      for (var i = 0; i < points.length; i++) {
-        final x = points.length == 1
-            ? 0.0
-            : size.width * i / (points.length - 1);
-        final y = size.height - (pick(points[i]) / maxValue * size.height);
-        if (i == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-      }
-      return path;
-    }
-
-    canvas.drawPath(pathFor((point) => point.income), incomePaint);
-    canvas.drawPath(pathFor((point) => point.expense), expensePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _TrendPainter oldDelegate) {
-    return oldDelegate.points != points;
   }
 }

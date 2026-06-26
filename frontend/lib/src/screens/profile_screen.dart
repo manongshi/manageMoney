@@ -14,7 +14,7 @@ class ProfileScreen extends StatelessWidget {
     final user = controller.user;
     return PageScaffold(
       title: '我的',
-      subtitle: '账户和运行信息',
+      subtitle: '账户信息',
       action: IconButton.filledTonal(
         tooltip: '刷新用户信息',
         onPressed: controller.loadProfile,
@@ -49,27 +49,6 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SectionGap(),
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '后端地址',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: AppColors.muted),
-              ),
-              const SizedBox(height: 8),
-              SelectableText(
-                controller.api.baseUrl,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),

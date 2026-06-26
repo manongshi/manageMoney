@@ -16,7 +16,6 @@ class BudgetScreen extends StatefulWidget {
 
 class _BudgetScreenState extends State<BudgetScreen> {
   final _month = TextEditingController(text: currentMonth());
-  final _amount = TextEditingController();
 
   @override
   void initState() {
@@ -27,7 +26,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
   @override
   void dispose() {
     _month.dispose();
-    _amount.dispose();
     super.dispose();
   }
 
@@ -112,30 +110,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ],
             ),
           ),
-          const SectionGap(),
-          AppCard(
-            child: Column(
-              children: [
-                TextField(
-                  controller: _month,
-                  decoration: const InputDecoration(labelText: '月份'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _amount,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '月预算'),
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: widget.controller.busy ? null : _save,
-                  child: const Text('保存预算'),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -144,26 +118,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> _load() async {
     try {
       await widget.controller.loadBudget(month: _month.text.trim());
-      _amount.text = formatMoney(widget.controller.budget.monthBudget);
-    } catch (error) {
-      if (!mounted) return;
-      showAppMessage(context, error.toString());
-    }
-  }
-
-  Future<void> _save() async {
-    final amount = double.tryParse(_amount.text.trim());
-    if (amount == null || amount < 0) {
-      showAppMessage(context, '请填写正确预算金额');
-      return;
-    }
-    try {
-      await widget.controller.saveBudget(
-        month: _month.text.trim(),
-        amount: amount,
-      );
-      if (!mounted) return;
-      showAppMessage(context, '预算已保存');
     } catch (error) {
       if (!mounted) return;
       showAppMessage(context, error.toString());
