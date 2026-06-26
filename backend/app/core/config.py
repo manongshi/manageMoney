@@ -21,9 +21,12 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-flash"
     xfyun_app_id: str | None = None
-    xfyun_secret_key: str | None = None
-    xfyun_base_url: str = "https://raasr.xfyun.cn/v2/api"
+    xfyun_api_key: str | None = None
+    xfyun_api_secret: str | None = None
+    xfyun_base_url: str = "https://office-api-ist-dx.iflyaisol.com"
     xfyun_audio_duration_ms: int = 200
+    xfyun_duration_check_disable: bool = True
+    xfyun_language: str = "autodialect"
     xfyun_poll_interval_seconds: float = 3
     xfyun_max_poll_attempts: int = 60
     voice_upload_dir: str = "uploads/voice"

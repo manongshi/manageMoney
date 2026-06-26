@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 import hmac
 import json
+import secrets
+import string
 import time
+from datetime import datetime
+from hashlib import sha1
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote_plus
 
 import httpx
 
@@ -14,6 +18,7 @@ from app.core.config import settings
 from app.core.exceptions import ApiError
 
 _XFYUN_SUCCESS_CODES = {"0", "000000"}
+_XFYUN_RANDOM_ALPHABET = string.ascii_letters + string.digits
 
 
 def transcribe_audio_file(
@@ -39,45 +44,61 @@ def _valid_audio_path(audio_path: str | Path) -> Path:
     return path
 
 
-def _build_xfyun_signa(app_id: str, secret_key: str, ts: str) -> str:
-    md5_value = hashlib.md5(f"{app_id}{ts}".encode("utf-8")).hexdigest()
-    digest = hmac.new(secret_key.encode("utf-8"), md5_value.encode("utf-8"), hashlib.sha1).digest()
+def _build_xfyun_llm_base_string(params: dict[str, Any]) -> str:
+    pieces: list[str] = []
+    for key in sorted(params):
+        if key == "signature":
+            continue
+        value = params[key]
+        if value is None or str(value) == "":
+            continue
+        encoded_key = quote_plus(str(key), safe="")
+        encoded_value = quote_plus(str(value), safe="")
+        pieces.append(f"{encoded_key}={encoded_value}")
+    return "&".join(pieces)
+
+
+def _build_xfyun_llm_signature(api_secret: str, params: dict[str, Any]) -> str:
+    base_string = _build_xfyun_llm_base_string(params)
+    digest = hmac.new(api_secret.encode("utf-8"), base_string.encode("utf-8"), sha1).digest()
     return base64.b64encode(digest).decode("utf-8")
 
 
-def _xfyun_auth_params() -> dict[str, str]:
-    if not settings.xfyun_app_id or not settings.xfyun_secret_key:
-        raise ApiError("讯飞语音识别服务未配置，请先配置 XFYUN_APP_ID 和 XFYUN_SECRET_KEY")
+def _xfyun_now() -> str:
+    return datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
 
-    ts = str(int(time.time()))
+
+def _xfyun_signature_random() -> str:
+    return "".join(secrets.choice(_XFYUN_RANDOM_ALPHABET) for _ in range(16))
+
+
+def _xfyun_credentials() -> tuple[str, str, str]:
+    if not settings.xfyun_app_id or not settings.xfyun_api_key or not settings.xfyun_api_secret:
+        raise ApiError("讯飞语音识别服务未配置，请先配置 XFYUN_APP_ID、XFYUN_API_KEY 和 XFYUN_API_SECRET")
+    return settings.xfyun_app_id, settings.xfyun_api_key, settings.xfyun_api_secret
+
+
+def _xfyun_signed_headers(api_secret: str, params: dict[str, Any], content_type: str) -> dict[str, str]:
     return {
-        "appId": settings.xfyun_app_id,
-        "ts": ts,
-        "signa": _build_xfyun_signa(settings.xfyun_app_id, settings.xfyun_secret_key, ts),
+        "Content-Type": content_type,
+        "signature": _build_xfyun_llm_signature(api_secret, params),
     }
 
 
 def _transcribe_audio_with_xfyun(audio_path: Path, filename: str | None = None) -> str:
+    app_id, api_key, api_secret = _xfyun_credentials()
     base_url = settings.xfyun_base_url.rstrip("/")
-    upload_url = f"{base_url}/upload"
-    result_url = f"{base_url}/getResult"
-    file_name = filename or audio_path.name
-
-    upload_params = _xfyun_auth_params()
-    upload_params.update(
-        {
-            "fileSize": str(audio_path.stat().st_size),
-            "fileName": file_name,
-            "duration": str(settings.xfyun_audio_duration_ms),
-        }
-    )
+    upload_url = f"{base_url}/v2/upload"
+    result_url = f"{base_url}/v2/getResult"
+    signature_random = _xfyun_signature_random()
+    upload_params = _xfyun_upload_params(app_id, api_key, signature_random, audio_path, filename)
 
     try:
         with httpx.Client(timeout=120) as client:
             upload_response = client.post(
                 upload_url,
                 params=upload_params,
-                headers={"Content-Type": "application/octet-stream"},
+                headers=_xfyun_signed_headers(api_secret, upload_params, "application/octet-stream"),
                 content=audio_path.read_bytes(),
             )
             upload_response.raise_for_status()
@@ -87,7 +108,7 @@ def _transcribe_audio_with_xfyun(audio_path: Path, filename: str | None = None) 
             if not order_id:
                 raise ApiError("讯飞语音识别上传失败：未返回任务编号")
 
-            order_result = _poll_xfyun_result(client, result_url, str(order_id))
+            order_result = _poll_xfyun_result(client, result_url, api_key, api_secret, signature_random, str(order_id))
     except httpx.HTTPError as exc:
         raise ApiError("讯飞语音识别请求失败，请稍后重试") from exc
     except json.JSONDecodeError as exc:
@@ -99,17 +120,58 @@ def _transcribe_audio_with_xfyun(audio_path: Path, filename: str | None = None) 
     return transcript
 
 
-def _poll_xfyun_result(client: httpx.Client, result_url: str, order_id: str) -> str:
+def _xfyun_upload_params(
+    app_id: str,
+    api_key: str,
+    signature_random: str,
+    audio_path: Path,
+    filename: str | None,
+) -> dict[str, str]:
+    params = {
+        "appId": app_id,
+        "accessKeyId": api_key,
+        "dateTime": _xfyun_now(),
+        "signatureRandom": signature_random,
+        "fileSize": str(audio_path.stat().st_size),
+        "fileName": filename or audio_path.name,
+        "durationCheckDisable": str(bool(settings.xfyun_duration_check_disable)).lower(),
+        "language": settings.xfyun_language,
+        "audioMode": "fileStream",
+    }
+    if not settings.xfyun_duration_check_disable:
+        params["duration"] = str(settings.xfyun_audio_duration_ms)
+    return params
+
+
+def _poll_xfyun_result(
+    client: httpx.Client,
+    result_url: str,
+    api_key: str,
+    api_secret: str,
+    signature_random: str,
+    order_id: str,
+) -> str:
     attempts = max(int(settings.xfyun_max_poll_attempts), 1)
     for index in range(attempts):
-        params = _xfyun_auth_params()
-        params["orderId"] = order_id
-        response = client.post(result_url, params=params)
+        params = {
+            "accessKeyId": api_key,
+            "dateTime": _xfyun_now(),
+            "signatureRandom": signature_random,
+            "orderId": order_id,
+            "resultType": "transfer",
+        }
+        response = client.post(
+            result_url,
+            params=params,
+            headers=_xfyun_signed_headers(api_secret, params, "application/json"),
+            json={},
+        )
         response.raise_for_status()
         payload = response.json()
         content = _require_xfyun_success(payload, "结果查询")
         order_info = content.get("orderInfo") or {}
         status = _status_code(order_info.get("status"))
+        fail_type = _status_code(order_info.get("failType"))
 
         if status == 4 or content.get("orderResult"):
             order_result = content.get("orderResult")
@@ -117,9 +179,8 @@ def _poll_xfyun_result(client: httpx.Client, result_url: str, order_id: str) -> 
                 raise ApiError("讯飞语音识别完成但未返回结果")
             return str(order_result)
 
-        if status < 0:
-            fail_type = order_info.get("failType") or order_info.get("errMsg") or "未知错误"
-            raise ApiError(f"讯飞语音识别失败：{fail_type}")
+        if status == -1 or fail_type not in (0, None):
+            raise ApiError(f"讯飞语音识别失败：{order_info.get('failType', '未知错误')}")
 
         if index < attempts - 1:
             time.sleep(max(float(settings.xfyun_poll_interval_seconds), 0))
@@ -139,11 +200,11 @@ def _require_xfyun_success(payload: dict[str, Any], action: str) -> dict[str, An
     return content
 
 
-def _status_code(value: Any) -> int:
+def _status_code(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
-        return 0
+        return None
 
 
 def _extract_xfyun_transcript(order_result: str | dict[str, Any]) -> str:
