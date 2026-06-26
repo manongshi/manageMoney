@@ -8,7 +8,6 @@ plugins {
 android {
     namespace = "com.manage.money.ai_account_book"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
