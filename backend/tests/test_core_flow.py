@@ -14,6 +14,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 
 os.environ["DATABASE_URL"] = "sqlite:///./test_ai_account_book.db"
 os.environ["SECRET_KEY"] = "test-secret"
+os.environ["AI_PROVIDER"] = "local"
 
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
@@ -277,3 +278,94 @@ def test_statistics_budget_and_ai_parse(client: TestClient):
     dashboard = assert_success(client.get("/statistics/dashboard", headers=headers))
     assert dashboard["month_expense"] == 55.0
     assert len(dashboard["recent_bills"]) == 3
+
+
+def test_ai_record_audio_transcribes_then_records_and_deletes_temp_file(
+    client: TestClient,
+    monkeypatch,
+    tmp_path,
+):
+    from app.api.v1 import ai as ai_api
+
+    monkeypatch.setattr(ai_api.settings, "voice_upload_dir", str(tmp_path))
+    captured = {}
+
+    def fake_transcribe(audio_path, content_type, filename):
+        captured["audio_path"] = Path(audio_path)
+        assert captured["audio_path"].exists()
+        return "今天打车25块"
+
+    monkeypatch.setattr(ai_api, "transcribe_audio_file", fake_transcribe)
+    headers = login_headers(client)
+
+    recorded = assert_success(
+        client.post(
+            "/ai/record-audio",
+            headers=headers,
+            files={"file": ("voice.m4a", b"fake audio", "audio/mp4")},
+        )
+    )
+
+    assert recorded["transcript"] == "今天打车25块"
+    assert recorded["parsed"]["amount"] == 25.0
+    assert recorded["parsed"]["bill_type"] == "expense"
+    assert recorded["bill"]["amount"] == 25.0
+    assert not captured["audio_path"].exists()
+
+
+def test_deepseek_parser_reads_chat_json(monkeypatch):
+    from app.services import ai_service
+
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"amount":30,"category":"交通","bill_type":"expense",'
+                                '"remark":"打车","confidence":0.95}'
+                            )
+                        }
+                    }
+                ]
+            }
+
+    class FakeClient:
+        def __init__(self, timeout):
+            captured["timeout"] = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def post(self, url, headers, json):
+            captured["url"] = url
+            captured["headers"] = headers
+            captured["json"] = json
+            return FakeResponse()
+
+    monkeypatch.setattr(ai_service.httpx, "Client", FakeClient)
+
+    parsed = ai_service.parse_bill_text_with_deepseek(
+        "今天打车30元",
+        api_key="deepseek-key",
+        base_url="https://api.deepseek.com",
+        model="deepseek-v4-flash",
+    )
+
+    assert parsed.amount == 30.0
+    assert parsed.category == "交通"
+    assert parsed.bill_type == "expense"
+    assert parsed.remark == "打车"
+    assert captured["url"] == "https://api.deepseek.com/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer deepseek-key"
+    assert captured["json"]["model"] == "deepseek-v4-flash"
+    assert captured["json"]["response_format"] == {"type": "json_object"}

@@ -1,13 +1,14 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_recognition_error.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:speech_to_text/speech_to_text.dart' as speech;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../app_controller.dart';
 import '../theme.dart';
 import '../models.dart';
 import '../utils/formatters.dart';
-import '../utils/speech_locale.dart';
 import '../widgets/common_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,18 +22,18 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _textController = TextEditingController();
-  final _speech = speech.SpeechToText();
+  final _recorder = AudioRecorder();
 
-  bool _speechReady = false;
   bool _listening = false;
   bool _submittingSpeech = false;
   bool _manualInput = false;
   String _recognizedText = '';
+  String? _recordingPath;
   String? _voiceStatus;
 
   @override
   void dispose() {
-    _speech.cancel();
+    unawaited(_recorder.dispose());
     _textController.dispose();
     super.dispose();
   }
@@ -157,66 +158,82 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.controller.busy || _submittingSpeech) return;
 
     if (_listening) {
-      await _speech.stop();
+      await _stopVoiceRecording();
       return;
     }
 
     try {
-      final available =
-          _speechReady ||
-          await _speech.initialize(
-            onStatus: _handleSpeechStatus,
-            onError: _handleSpeechError,
-            options: [
-              speech.SpeechToText.androidNoBluetooth,
-              speech.SpeechToText.androidIntentLookup,
-            ],
-          );
+      final hasPermission = await _recorder.hasPermission();
       if (!mounted) return;
-      if (!available) {
-        _showVoiceStatus('当前手机没有可用的语音识别服务', showManualInput: true);
+      if (!hasPermission) {
+        _showVoiceStatus('请允许麦克风权限后再录音');
         return;
       }
 
+      final supportsAac = await _recorder.isEncoderSupported(
+        AudioEncoder.aacLc,
+      );
+      final extension = supportsAac ? 'm4a' : 'wav';
+      final tempDir = await getTemporaryDirectory();
+      final audioPath =
+          '${tempDir.path}${Platform.pathSeparator}voice_${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      await _recorder.start(
+        RecordConfig(
+          encoder: supportsAac ? AudioEncoder.aacLc : AudioEncoder.wav,
+          bitRate: 64000,
+          sampleRate: 16000,
+          numChannels: 1,
+          autoGain: true,
+          noiseSuppress: true,
+        ),
+        path: audioPath,
+      );
+      if (!mounted) return;
       setState(() {
         _manualInput = false;
-        _speechReady = true;
         _listening = true;
         _recognizedText = '';
-        _voiceStatus = null;
+        _recordingPath = audioPath;
+        _voiceStatus = '正在录音，点击停止并分析';
       });
       _textController.clear();
-
-      final localeId = await _preferredSpeechLocale();
-      if (mounted && localeId == null) {
-        setState(() => _voiceStatus = '使用系统默认语音语言');
-      }
-
-      await _speech.listen(
-        onResult: _handleSpeechResult,
-        listenOptions: speech.SpeechListenOptions(
-          localeId: localeId,
-          listenMode: speech.ListenMode.dictation,
-          partialResults: true,
-          cancelOnError: true,
-          autoPunctuation: true,
-          enableHapticFeedback: true,
-          listenFor: const Duration(seconds: 12),
-          pauseFor: const Duration(seconds: 3),
-        ),
-      );
     } catch (error) {
       if (!mounted) return;
       setState(() => _listening = false);
-      _showVoiceStatus('语音识别启动失败：$error', showManualInput: true);
+      _showVoiceStatus('录音启动失败：$error');
     }
   }
 
+  Future<void> _stopVoiceRecording() async {
+    String? audioPath = _recordingPath;
+    try {
+      audioPath = await _recorder.stop() ?? audioPath;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _listening = false;
+          _recordingPath = null;
+        });
+      }
+    }
+
+    if (audioPath == null || audioPath.trim().isEmpty) {
+      _showVoiceStatus('没有生成录音文件，请重新录制');
+      return;
+    }
+    await _recordAudioFile(audioPath);
+  }
+
   Future<void> _toggleManualInput() async {
+    final audioPath = _recordingPath;
     if (_listening) {
-      await _speech.stop();
+      final stoppedPath = await _recorder.stop();
+      await _deleteLocalAudioFile(stoppedPath ?? audioPath ?? '');
     }
     setState(() {
+      _listening = false;
+      _recordingPath = null;
       _manualInput = !_manualInput;
       _voiceStatus = null;
       if (!_manualInput) {
@@ -224,53 +241,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _textController.clear();
       }
     });
-  }
-
-  Future<String?> _preferredSpeechLocale() async {
-    try {
-      final locales = await _speech.locales();
-      final systemLocale = await _speech.systemLocale();
-      return selectSpeechLocale(
-        locales.map((locale) => locale.localeId),
-        systemLocale?.localeId,
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _handleSpeechResult(SpeechRecognitionResult result) {
-    final words = result.recognizedWords.trim();
-    if (!mounted || words.isEmpty) return;
-
-    setState(() {
-      _recognizedText = words;
-      _textController.text = words;
-      _voiceStatus = null;
-    });
-
-    if (result.finalResult) {
-      _recordRecognizedText();
-    }
-  }
-
-  void _handleSpeechStatus(String status) {
-    if (!mounted) return;
-
-    setState(() {
-      _listening = status == speech.SpeechToText.listeningStatus;
-    });
-
-    if (status == speech.SpeechToText.doneStatus ||
-        status == speech.SpeechToText.notListeningStatus) {
-      _recordRecognizedText();
-    }
-  }
-
-  void _handleSpeechError(SpeechRecognitionError error) {
-    if (!mounted) return;
-    setState(() => _listening = false);
-    _showVoiceStatus('语音识别失败：${error.errorMsg}');
   }
 
   Future<void> _recordRecognizedText() async {
@@ -297,6 +267,42 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() => _submittingSpeech = false);
       }
+    }
+  }
+
+  Future<void> _recordAudioFile(String audioPath) async {
+    if (_submittingSpeech) return;
+    setState(() {
+      _submittingSpeech = true;
+      _voiceStatus = '正在识别并分析账单';
+    });
+    try {
+      await widget.controller.recordAudioBill(audioPath);
+      if (!mounted) return;
+      setState(() {
+        _manualInput = false;
+        _recognizedText = '';
+        _voiceStatus = null;
+      });
+      showAppMessage(context, '已入账');
+    } catch (error) {
+      if (!mounted) return;
+      _showVoiceStatus(error.toString());
+    } finally {
+      await _deleteLocalAudioFile(audioPath);
+      if (mounted) {
+        setState(() => _submittingSpeech = false);
+      }
+    }
+  }
+
+  Future<void> _deleteLocalAudioFile(String audioPath) async {
+    if (audioPath.trim().isEmpty) return;
+    try {
+      final file = File(audioPath);
+      if (await file.exists()) await file.delete();
+    } catch (_) {
+      // Best-effort cleanup for temporary recordings.
     }
   }
 

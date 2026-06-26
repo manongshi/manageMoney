@@ -14,7 +14,12 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     ai_provider: str = "local"
     openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_audio_model: str = "gpt-4o-mini-transcribe"
     deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-v4-flash"
+    voice_upload_dir: str = "uploads/voice"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

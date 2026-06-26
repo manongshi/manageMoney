@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
 import re
 
+import httpx
+
+from app.core.config import settings
+from app.core.exceptions import ApiError
 from app.schemas.ai import AIParseResult
 
 INCOME_KEYWORDS = ["工资", "奖金", "兼职", "红包", "理财", "到账", "收入", "发了"]
@@ -31,10 +36,24 @@ AMOUNT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:元|块钱|块)?")
 
 def parse_bill_text(text: str) -> AIParseResult:
     clean = text.strip()
-    amount = _extract_amount(clean)
-    bill_type = _detect_type(clean)
-    category = _detect_category(clean, bill_type)
-    remark = _extract_remark(clean, category)
+    if settings.ai_provider.lower() == "deepseek":
+        if not settings.deepseek_api_key:
+            raise ApiError("DeepSeek API Key 未配置，无法进行 AI 账单分析")
+        return parse_bill_text_with_deepseek(
+            clean,
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_base_url,
+            model=settings.deepseek_model,
+        )
+
+    return parse_bill_text_locally(clean)
+
+
+def parse_bill_text_locally(text: str) -> AIParseResult:
+    amount = _extract_amount(text)
+    bill_type = _detect_type(text)
+    category = _detect_category(text, bill_type)
+    remark = _extract_remark(text, category)
     confidence = 0.86 if amount > 0 else 0.45
     return AIParseResult(
         amount=amount,
@@ -43,6 +62,77 @@ def parse_bill_text(text: str) -> AIParseResult:
         remark=remark,
         confidence=confidence,
     )
+
+
+def parse_bill_text_with_deepseek(
+    text: str,
+    *,
+    api_key: str,
+    base_url: str,
+    model: str,
+) -> AIParseResult:
+    if not text.strip():
+        raise ApiError("语音内容为空，无法分析账单")
+
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "你是记账助手。请只返回 JSON，不要解释。"
+                    "字段：amount 数字金额；category 中文分类名；"
+                    "bill_type 只能是 income 或 expense；remark 简短备注；"
+                    "confidence 0 到 1。没有明确收入关键词时默认 expense。"
+                ),
+            },
+            {"role": "user", "content": text},
+        ],
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=30) as client:
+            response = client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            content = response.json()["choices"][0]["message"]["content"]
+    except (httpx.HTTPError, KeyError, IndexError, TypeError) as exc:
+        raise ApiError("DeepSeek 账单分析失败，请稍后重试") from exc
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ApiError("DeepSeek 返回格式无法解析") from exc
+
+    bill_type = str(data.get("bill_type") or "expense").strip().lower()
+    if bill_type not in {"income", "expense"}:
+        bill_type = "expense"
+
+    amount = read_float(data.get("amount"))
+    category = str(data.get("category") or "其他").strip() or "其他"
+    remark = str(data.get("remark") or category).strip() or category
+    confidence = max(0.0, min(1.0, read_float(data.get("confidence"), default=0.8)))
+
+    return AIParseResult(
+        amount=amount,
+        category=category,
+        bill_type=bill_type,
+        remark=remark,
+        confidence=confidence,
+    )
+
+
+def read_float(value: object, *, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _extract_amount(text: str) -> float:

@@ -100,6 +100,24 @@ void main() {
     expect(controller.lastRecordedBill?.amount, 25);
   });
 
+  test(
+    'recordAudioBill sends recorded audio to backend AI transcription',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final api = _FakeApiClient();
+      final controller = AppController(
+        api: api,
+        prefs: await SharedPreferences.getInstance(),
+      );
+
+      await controller.recordAudioBill('voice.m4a');
+
+      expect(api.recordedAudioPath, 'voice.m4a');
+      expect(controller.lastRecordedBill?.amount, 25);
+      expect(controller.dashboard.monthExpense, 25);
+    },
+  );
+
   testWidgets('home hides recent bill list', (tester) async {
     await tester.binding.setSurfaceSize(const Size(420, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -125,10 +143,17 @@ class _FakeApiClient extends ApiClient {
 
   final Bill bill = _billFromJson(amount: 25, billType: 'expense');
   String? recordedText;
+  String? recordedAudioPath;
 
   @override
   Future<Bill> recordBillText(String text) async {
     recordedText = text;
+    return bill;
+  }
+
+  @override
+  Future<Bill> recordBillAudio(String audioPath) async {
+    recordedAudioPath = audioPath;
     return bill;
   }
 

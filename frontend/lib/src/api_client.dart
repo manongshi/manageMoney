@@ -195,6 +195,22 @@ class ApiClient {
     return Bill.fromJson(Map<String, dynamic>.from(map['bill'] as Map));
   }
 
+  Future<Bill> recordBillAudio(String audioPath) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/ai/record-audio'),
+    )..files.add(await http.MultipartFile.fromPath('file', audioPath));
+    if (token != null && token!.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    final data = _decodeApiResponse(response);
+    final map = Map<String, dynamic>.from(data as Map);
+    return Bill.fromJson(Map<String, dynamic>.from(map['bill'] as Map));
+  }
+
   Future<dynamic> _request(
     String path, {
     String method = 'GET',
@@ -214,7 +230,10 @@ class ApiClient {
       'DELETE' => await http.delete(uri, headers: headers),
       _ => await http.get(uri, headers: headers),
     };
+    return _decodeApiResponse(response);
+  }
 
+  dynamic _decodeApiResponse(http.Response response) {
     dynamic decoded;
     try {
       decoded = jsonDecode(utf8.decode(response.bodyBytes));

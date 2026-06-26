@@ -179,6 +179,16 @@ class AppController extends ChangeNotifier {
     });
   }
 
+  Future<void> recordAudioBill(String audioPath) async {
+    await _run(() async {
+      lastRecordedBill = await api.recordBillAudio(audioPath);
+      dashboard = await api.dashboard();
+      final page = await api.bills();
+      bills = page.records;
+      billTotal = page.total;
+    });
+  }
+
   Future<void> loadStatistics({String? month}) async {
     final targetMonth = month ?? currentMonth();
     await _run(() async {
