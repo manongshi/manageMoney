@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const primary = Color(0xFF176B4D);
-  static const primaryDark = Color(0xFF0F3F31);
-  static const background = Color(0xFFF6F8F5);
+  static const primary = Color(0xFF315846);
+  static const primaryDark = Color(0xFF233B31);
+  static const background = Color(0xFFF7F7F3);
   static const surface = Color(0xFFFFFFFF);
-  static const border = Color(0xFFDCE5DD);
-  static const text = Color(0xFF17211B);
-  static const muted = Color(0xFF66746B);
-  static const income = Color(0xFF167A45);
-  static const expense = Color(0xFFB42318);
+  static const border = Color(0xFFE2E0D8);
+  static const text = Color(0xFF1F2722);
+  static const muted = Color(0xFF6F746E);
+  static const income = Color(0xFF2F7D52);
+  static const expense = Color(0xFFAD3B32);
 }
 
 ThemeData buildAppTheme() {
@@ -46,41 +46,41 @@ ThemeData buildAppTheme() {
       color: AppColors.surface,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         side: const BorderSide(color: AppColors.border),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         side: const BorderSide(color: AppColors.border),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppColors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: Colors.white,
-      indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+      indicatorColor: AppColors.primary.withValues(alpha: 0.1),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           color: states.contains(WidgetState.selected)

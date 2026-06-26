@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onRefresh: widget.controller.refreshDashboard,
           child: PageScaffold(
             title: '今日账本',
-            subtitle: '语音记一笔，AI 自动拆分收入和支出',
+            subtitle: '说一句，收入支出自动入账',
             action: IconButton.filledTonal(
               tooltip: '刷新首页',
               onPressed: widget.controller.refreshDashboard,
@@ -73,8 +73,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       spacing: 16,
                       runSpacing: 8,
                       children: [
-                        Text('收入 ¥${formatMoney(data.monthIncome)}'),
-                        Text('支出 ¥${formatMoney(data.monthExpense)}'),
+                        Text(
+                          "收入 ${formatSignedMoney(data.monthIncome, 'income')}",
+                        ),
+                        Text(
+                          "支出 ${formatSignedMoney(data.monthExpense, 'expense')}",
+                        ),
                         Text('预算 ${formatMoney(data.budgetPercent)}%'),
                       ],
                     ),
@@ -92,13 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   MetricCard(
                     label: '今日支出',
-                    value: '¥${formatMoney(data.todayExpense)}',
+                    value: formatSignedMoney(data.todayExpense, 'expense'),
                     color: AppColors.expense,
                     icon: Icons.arrow_downward,
                   ),
                   MetricCard(
                     label: '今日收入',
-                    value: '¥${formatMoney(data.todayIncome)}',
+                    value: formatSignedMoney(data.todayIncome, 'income'),
                     color: AppColors.income,
                     icon: Icons.arrow_upward,
                   ),
@@ -109,13 +113,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   MetricCard(
                     label: '本月支出',
-                    value: '¥${formatMoney(data.monthExpense)}',
+                    value: formatSignedMoney(data.monthExpense, 'expense'),
                     color: AppColors.expense,
                     icon: Icons.calendar_month_outlined,
                   ),
                   MetricCard(
                     label: '本月收入',
-                    value: '¥${formatMoney(data.monthIncome)}',
+                    value: formatSignedMoney(data.monthIncome, 'income'),
                     color: AppColors.income,
                     icon: Icons.account_balance_wallet_outlined,
                   ),
@@ -128,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (lastRecordedBill != null) ...[
                 const SectionGap(),
-                _AiResultCard(bill: lastRecordedBill),
+                _RecordedBillCard(bill: lastRecordedBill),
               ],
               const SizedBox(height: 96),
             ],
@@ -315,8 +319,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _AiResultCard extends StatelessWidget {
-  const _AiResultCard({required this.bill});
+class _RecordedBillCard extends StatelessWidget {
+  const _RecordedBillCard({required this.bill});
 
   final Bill bill;
 
@@ -337,9 +341,9 @@ class _AiResultCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
-            child: Icon(Icons.auto_awesome, color: color),
+            child: Icon(Icons.check, color: color),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -347,7 +351,7 @@ class _AiResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AI 已识别$typeText ¥${formatMoney(bill.amount)}',
+                  '已记录$typeText ${formatSignedMoney(bill.amount, bill.billType)}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: color,
@@ -452,7 +456,7 @@ class _VoiceComposer extends StatelessWidget {
                             vertical: 12,
                           ),
                           suffixIcon: IconButton(
-                            tooltip: '发送给 AI',
+                            tooltip: '保存',
                             onPressed: busy ? null : onSubmit,
                             icon: const Icon(Icons.send),
                           ),
@@ -460,7 +464,7 @@ class _VoiceComposer extends StatelessWidget {
                       ),
                     )
                   : InkWell(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       onTap: busy ? null : onTapVoice,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -473,7 +477,7 @@ class _VoiceComposer extends StatelessWidget {
                               : listening
                               ? AppColors.primary.withValues(alpha: 0.08)
                               : const Color(0xFFF5F6F5),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             color: statusText != null && statusText!.isNotEmpty
                                 ? AppColors.expense
@@ -511,7 +515,7 @@ class _VoiceComposer extends StatelessWidget {
             if (recognizedText.isNotEmpty && !listening && !manualInput) ...[
               const SizedBox(width: 10),
               IconButton.filledTonal(
-                tooltip: '发送给 AI',
+                tooltip: '保存',
                 onPressed: busy ? null : onSubmit,
                 icon: const Icon(Icons.send),
               ),

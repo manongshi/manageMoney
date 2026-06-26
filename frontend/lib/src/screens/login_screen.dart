@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: const Icon(
                 Icons.account_balance_wallet,
@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '用更清楚的方式记录收支、预算和日常账单。',
+              '记录收支、预算和每天的账。',
               style: Theme.of(
                 context,
               ).textTheme.bodyLarge?.copyWith(color: AppColors.muted),

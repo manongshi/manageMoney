@@ -80,7 +80,7 @@ class SectionGap extends StatelessWidget {
   const SectionGap({super.key});
 
   @override
-  Widget build(BuildContext context) => const SizedBox(height: 14);
+  Widget build(BuildContext context) => const SizedBox(height: 12);
 }
 
 class MetricCard extends StatelessWidget {
@@ -100,6 +100,7 @@ class MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -120,12 +121,17 @@ class MetricCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: color ?? AppColors.text,
-              fontWeight: FontWeight.w900,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: color ?? AppColors.text,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
@@ -154,7 +160,7 @@ class MoneyAmount extends StatelessWidget {
         ? AppColors.expense
         : AppColors.text;
     return Text(
-      '¥${formatMoney(value)}',
+      formatSignedMoney(value, type),
       style:
           (large
                   ? Theme.of(context).textTheme.displaySmall
@@ -208,9 +214,9 @@ class BillTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: bill.billType == 'income'
-                  ? AppColors.income.withValues(alpha: 0.1)
-                  : AppColors.expense.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+                  ? AppColors.income.withValues(alpha: 0.08)
+                  : AppColors.expense.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               bill.billType == 'income'

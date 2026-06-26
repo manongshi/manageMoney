@@ -9,6 +9,9 @@ class AppController extends ChangeNotifier {
   AppController({required this.api, required this.prefs});
 
   static const _tokenKey = 'auth_token';
+  static const _userIdKey = 'auth_user_id';
+  static const _usernameKey = 'auth_username';
+  static const _nicknameKey = 'auth_nickname';
 
   final ApiClient api;
   final SharedPreferences prefs;
@@ -38,11 +41,26 @@ class AppController extends ChangeNotifier {
     token = prefs.getString(_tokenKey);
     api.token = token;
     if (isLoggedIn) {
+      user = _cachedUser();
       try {
         await loadProfile();
-        await refreshDashboard();
-      } catch (_) {
-        await clearSession();
+      } catch (exception) {
+        if (api.token == null) {
+          await clearSession();
+          return;
+        }
+        error = exception.toString();
+      }
+      if (isLoggedIn) {
+        try {
+          await refreshDashboard(silent: true);
+        } catch (exception) {
+          if (api.token == null) {
+            await clearSession();
+            return;
+          }
+          error = exception.toString();
+        }
       }
     }
     notifyListeners();
@@ -55,6 +73,7 @@ class AppController extends ChangeNotifier {
       user = result.user;
       api.token = token;
       await prefs.setString(_tokenKey, result.token);
+      await _cacheUser(result.user);
       await refreshDashboard(silent: true);
     });
   }
@@ -75,6 +94,7 @@ class AppController extends ChangeNotifier {
       user = result.user;
       api.token = token;
       await prefs.setString(_tokenKey, result.token);
+      await _cacheUser(result.user);
       await refreshDashboard(silent: true);
     });
   }
@@ -82,6 +102,7 @@ class AppController extends ChangeNotifier {
   Future<void> loadProfile() async {
     if (!isLoggedIn) return;
     user = await api.profile();
+    await _cacheUser(user!);
     notifyListeners();
   }
 
@@ -101,7 +122,24 @@ class AppController extends ChangeNotifier {
     api.token = null;
     lastRecordedBill = null;
     await prefs.remove(_tokenKey);
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_usernameKey);
+    await prefs.remove(_nicknameKey);
     notifyListeners();
+  }
+
+  UserProfile? _cachedUser() {
+    final id = prefs.getString(_userIdKey);
+    final username = prefs.getString(_usernameKey);
+    final nickname = prefs.getString(_nicknameKey);
+    if (id == null || username == null || nickname == null) return null;
+    return UserProfile(id: id, username: username, nickname: nickname);
+  }
+
+  Future<void> _cacheUser(UserProfile value) async {
+    await prefs.setString(_userIdKey, value.id);
+    await prefs.setString(_usernameKey, value.username);
+    await prefs.setString(_nicknameKey, value.nickname);
   }
 
   Future<void> refreshDashboard({bool silent = false}) async {

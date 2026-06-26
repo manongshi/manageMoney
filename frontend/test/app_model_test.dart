@@ -1,6 +1,7 @@
 import 'package:ai_account_book/src/api_client.dart';
 import 'package:ai_account_book/src/app_controller.dart';
 import 'package:ai_account_book/src/models.dart';
+import 'package:ai_account_book/src/screens/budget_screen.dart';
 import 'package:ai_account_book/src/screens/home_screen.dart';
 import 'package:ai_account_book/src/utils/speech_locale.dart';
 import 'package:ai_account_book/src/utils/formatters.dart';
@@ -14,6 +15,13 @@ void main() {
     expect(formatMoney(null), '0.00');
     expect(formatMoney(12), '12.00');
     expect(formatMoney(12.345), '12.35');
+  });
+
+  test('formatSignedMoney prefixes income and expense amounts', () {
+    expect(formatSignedMoney(12, 'income'), '+¥12.00');
+    expect(formatSignedMoney(12, 'expense'), '-¥12.00');
+    expect(formatSignedMoney(12, null), '¥12.00');
+    expect(formatSignedMoney(-12, null), '-¥12.00');
   });
 
   test('Bill parses backend string ids and nested category data', () {
@@ -44,7 +52,7 @@ void main() {
   });
 
   test(
-    'recordTextBill keeps the AI-created bill for home screen feedback',
+    'recordTextBill keeps the created bill for home screen feedback',
     () async {
       SharedPreferences.setMockInitialValues({});
       final api = _FakeApiClient();
@@ -63,6 +71,28 @@ void main() {
   );
 
   test(
+    'login persists session and restore keeps cached user when refresh fails',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final firstApi = _FakeApiClient();
+      final firstController = AppController(api: firstApi, prefs: prefs);
+
+      await firstController.login('13800000000', 'secret123');
+
+      final secondApi = _FakeApiClient()..failDashboard = true;
+      final secondController = AppController(api: secondApi, prefs: prefs);
+      await secondController.restoreSession();
+
+      expect(firstApi.loginCalls, 1);
+      expect(secondApi.loginCalls, 0);
+      expect(secondController.isLoggedIn, isTrue);
+      expect(secondController.user?.username, '13800000000');
+      expect(secondApi.token, 'token-1');
+    },
+  );
+
+  test(
     'speech locale selection prefers available Chinese locale and falls back safely',
     () {
       expect(
@@ -74,7 +104,7 @@ void main() {
     },
   );
 
-  testWidgets('home manual input fallback can submit text to AI', (
+  testWidgets('home manual input fallback can submit text to service', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -93,7 +123,7 @@ void main() {
     await tester.tap(find.byTooltip('手动输入账单'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '今天打车30元');
-    await tester.tap(find.byTooltip('发送给 AI'));
+    await tester.tap(find.byTooltip('保存'));
     await tester.pumpAndSettle();
 
     expect(api.recordedText, '今天打车30元');
@@ -101,7 +131,7 @@ void main() {
   });
 
   test(
-    'recordAudioBill sends recorded audio to backend AI transcription',
+    'recordAudioBill sends recorded audio to backend transcription',
     () async {
       SharedPreferences.setMockInitialValues({});
       final api = _FakeApiClient();
@@ -136,6 +166,32 @@ void main() {
 
     expect(find.byType(BillTile), findsNothing);
   });
+
+  testWidgets('budget screen can save a monthly budget amount', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final api = _FakeApiClient();
+    final controller = AppController(
+      api: api,
+      prefs: await SharedPreferences.getInstance(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: BudgetScreen(controller: controller)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('budget-amount')), '3000');
+    await tester.tap(find.byKey(const ValueKey('save-budget')));
+    await tester.pumpAndSettle();
+
+    expect(api.savedBudgetMonth, currentMonth());
+    expect(api.savedBudgetAmount, 3000);
+    expect(controller.budget.monthBudget, 3000);
+  });
 }
 
 class _FakeApiClient extends ApiClient {
@@ -144,6 +200,30 @@ class _FakeApiClient extends ApiClient {
   final Bill bill = _billFromJson(amount: 25, billType: 'expense');
   String? recordedText;
   String? recordedAudioPath;
+  String? savedBudgetMonth;
+  double? savedBudgetAmount;
+  int loginCalls = 0;
+  bool failDashboard = false;
+
+  final UserProfile profileData = const UserProfile(
+    id: '10000000000002',
+    username: '13800000000',
+    nickname: '本地用户',
+  );
+
+  @override
+  Future<({String token, UserProfile user})> login({
+    required String username,
+    required String password,
+  }) async {
+    loginCalls += 1;
+    return (token: 'token-1', user: profileData);
+  }
+
+  @override
+  Future<UserProfile> profile() async {
+    return profileData;
+  }
 
   @override
   Future<Bill> recordBillText(String text) async {
@@ -159,6 +239,7 @@ class _FakeApiClient extends ApiClient {
 
   @override
   Future<DashboardStats> dashboard() async {
+    if (failDashboard) throw const ApiException('dashboard failed');
     return DashboardStats.fromJson({
       'today_income': 0,
       'today_expense': 25,
@@ -168,6 +249,35 @@ class _FakeApiClient extends ApiClient {
       'continuous_days': 1,
       'recent_bills': [_billJson(amount: 25, billType: 'expense')],
       'budget_percent': 0,
+    });
+  }
+
+  @override
+  Future<BudgetInfo> budget(String month) async {
+    return BudgetInfo.fromJson({
+      'month': month,
+      'month_budget': savedBudgetAmount ?? 2000,
+      'spent': 25,
+      'remaining': (savedBudgetAmount ?? 2000) - 25,
+      'percent': 1.25,
+      'over_budget': false,
+    });
+  }
+
+  @override
+  Future<BudgetInfo> saveBudget({
+    required String month,
+    required double amount,
+  }) async {
+    savedBudgetMonth = month;
+    savedBudgetAmount = amount;
+    return BudgetInfo.fromJson({
+      'month': month,
+      'month_budget': amount,
+      'spent': 25,
+      'remaining': amount - 25,
+      'percent': amount == 0 ? 0 : 25 / amount * 100,
+      'over_budget': amount < 25,
     });
   }
 

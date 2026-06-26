@@ -64,21 +64,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             children: [
               MetricCard(
                 label: '月收入',
-                value: '¥${formatMoney(controller.monthStats.income)}',
+                value: formatSignedMoney(
+                  controller.monthStats.income,
+                  'income',
+                ),
                 color: AppColors.income,
               ),
               MetricCard(
                 label: '月支出',
-                value: '¥${formatMoney(controller.monthStats.expense)}',
+                value: formatSignedMoney(
+                  controller.monthStats.expense,
+                  'expense',
+                ),
                 color: AppColors.expense,
               ),
               MetricCard(
                 label: '月结余',
-                value: '¥${formatMoney(controller.monthStats.balance)}',
+                value: formatSignedMoney(controller.monthStats.balance, null),
               ),
               MetricCard(
                 label: '今日结余',
-                value: '¥${formatMoney(controller.dayStats.balance)}',
+                value: formatSignedMoney(controller.dayStats.balance, null),
               ),
             ],
           ),
@@ -140,14 +146,14 @@ class _CategoryBar extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text(item.name)),
-              Text('¥${formatMoney(item.value)}'),
+              Text(formatSignedMoney(item.value, 'expense')),
             ],
           ),
           const SizedBox(height: 6),
           LinearProgressIndicator(
             value: value,
             minHeight: 8,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             backgroundColor: AppColors.border,
             color: AppColors.primary,
           ),
