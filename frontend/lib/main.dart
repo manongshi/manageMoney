@@ -53,7 +53,7 @@ class _AccountBookAppState extends State<AccountBookApp> {
       builder: (context, snapshot) {
         final controller = snapshot.data;
         return MaterialApp(
-          title: 'AI智能记账',
+          title: 'Ai记账小助手',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
           home: controller == null

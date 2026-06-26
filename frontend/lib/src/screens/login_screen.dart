@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 22),
             Text(
-              'AI智能记账',
+              'Ai记账小助手',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w900,
                 color: AppColors.text,
