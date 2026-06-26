@@ -29,21 +29,29 @@ DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/ai_account_book
 
 如果切换 MySQL，需要额外安装对应驱动，例如 `pymysql`。
 
-## 前端
+## Flutter 前端
 
 目录：`frontend/`
 
 ```powershell
 cd frontend
-npm install
-npm run dev:h5
+flutter pub get
+flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000
 ```
 
-前端默认请求 `http://124.221.109.41:8000`。如需改后端地址，创建前端环境变量：
+前端默认请求 `http://127.0.0.1:8000`。如需改后端地址，运行时传入：
 
-```env
-VITE_API_BASE_URL=http://124.221.109.41:8000
+```powershell
+flutter run --dart-define=API_BASE_URL=http://后端地址:8000
 ```
+
+Android 模拟器访问宿主机本地后端时，地址通常要改为：
+
+```powershell
+flutter run -d emulator --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+本次已将原 UniApp 前端替换为 Flutter 前端，保留登录/注册、首页概览、文本智能入账、账单新增编辑删除、统计、预算和个人页。真实录音识别未迁移，当前 Flutter 端使用文本智能入账保证前后端闭环稳定。
 
 ## 已实现功能
 
@@ -67,7 +75,9 @@ VITE_API_BASE_URL=http://124.221.109.41:8000
 ```powershell
 python -m pytest backend/tests/test_core_flow.py -q
 python -m compileall backend/app backend/tests -q
-node frontend/scripts/check-syntax.mjs
+cd frontend
+flutter test test/app_model_test.dart
+flutter analyze
 ```
 
 未按你的要求运行 Maven、`npm run build` 或其他打包命令。
