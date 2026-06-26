@@ -5,7 +5,9 @@ import 'package:speech_to_text/speech_to_text.dart' as speech;
 
 import '../app_controller.dart';
 import '../theme.dart';
+import '../models.dart';
 import '../utils/formatters.dart';
+import '../utils/speech_locale.dart';
 import '../widgets/common_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -36,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final data = widget.controller.dashboard;
+    final lastRecordedBill = widget.controller.lastRecordedBill;
     return Stack(
       children: [
         RefreshIndicator(
@@ -107,8 +110,39 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.expense,
                     icon: Icons.calendar_month_outlined,
                   ),
+                  MetricCard(
+                    label: '本月收入',
+                    value: '¥${formatMoney(data.monthIncome)}',
+                    color: AppColors.income,
+                    icon: Icons.account_balance_wallet_outlined,
+                  ),
+                  MetricCard(
+                    label: '预算使用',
+                    value: '${formatMoney(data.budgetPercent)}%',
+                    icon: Icons.speed_outlined,
+                  ),
                 ],
               ),
+              if (lastRecordedBill != null) ...[
+                const SectionGap(),
+                _AiResultCard(bill: lastRecordedBill),
+              ],
+              if (data.recentBills.isNotEmpty) ...[
+                const SectionGap(),
+                Text(
+                  '最近记录',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ...data.recentBills.map(
+                  (bill) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: BillTile(bill: bill),
+                  ),
+                ),
+              ],
               const SizedBox(height: 96),
             ],
           ),
@@ -158,10 +192,12 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _textController.clear();
 
+      final localeId = await _preferredSpeechLocale();
+
       await _speech.listen(
         onResult: _handleSpeechResult,
         listenOptions: speech.SpeechListenOptions(
-          localeId: 'zh_CN',
+          localeId: localeId,
           listenMode: speech.ListenMode.dictation,
           partialResults: true,
           cancelOnError: true,
@@ -175,6 +211,19 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _listening = false);
       showAppMessage(context, '语音识别启动失败：$error');
+    }
+  }
+
+  Future<String?> _preferredSpeechLocale() async {
+    try {
+      final locales = await _speech.locales();
+      final systemLocale = await _speech.systemLocale();
+      return selectSpeechLocale(
+        locales.map((locale) => locale.localeId),
+        systemLocale?.localeId,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
@@ -232,6 +281,62 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _submittingSpeech = false);
       }
     }
+  }
+}
+
+class _AiResultCard extends StatelessWidget {
+  const _AiResultCard({required this.bill});
+
+  final Bill bill;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = bill.billType == 'income';
+    final color = isIncome ? AppColors.income : AppColors.expense;
+    final typeText = isIncome ? '收入' : '支出';
+    final remark = bill.remark == null || bill.remark!.trim().isEmpty
+        ? bill.category.name
+        : bill.remark!.trim();
+
+    return AppCard(
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.auto_awesome, color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AI 已识别$typeText ¥${formatMoney(bill.amount)}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${bill.category.name} · $remark',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

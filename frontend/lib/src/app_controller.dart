@@ -26,6 +26,7 @@ class AppController extends ChangeNotifier {
   MoneyStats dayStats = MoneyStats.empty();
   MoneyStats monthStats = MoneyStats.empty();
   List<CategoryStat> categoryStats = [];
+  Bill? lastRecordedBill;
 
   bool get isLoggedIn => token != null && token!.isNotEmpty;
 
@@ -98,6 +99,7 @@ class AppController extends ChangeNotifier {
     token = null;
     user = null;
     api.token = null;
+    lastRecordedBill = null;
     await prefs.remove(_tokenKey);
     notifyListeners();
   }
@@ -169,7 +171,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> recordTextBill(String text) async {
     await _run(() async {
-      await api.recordBillText(text);
+      lastRecordedBill = await api.recordBillText(text);
       dashboard = await api.dashboard();
       final page = await api.bills();
       bills = page.records;
