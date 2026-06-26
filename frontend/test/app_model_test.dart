@@ -1,8 +1,11 @@
 import 'package:ai_account_book/src/api_client.dart';
 import 'package:ai_account_book/src/app_controller.dart';
 import 'package:ai_account_book/src/models.dart';
+import 'package:ai_account_book/src/screens/home_screen.dart';
 import 'package:ai_account_book/src/utils/speech_locale.dart';
 import 'package:ai_account_book/src/utils/formatters.dart';
+import 'package:ai_account_book/src/widgets/common_widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,15 +73,64 @@ void main() {
       expect(selectSpeechLocale([], null), isNull);
     },
   );
+
+  testWidgets('home manual input fallback can submit text to AI', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = _FakeApiClient();
+    final controller = AppController(
+      api: api,
+      prefs: await SharedPreferences.getInstance(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: HomeScreen(controller: controller)),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('手动输入账单'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '今天打车30元');
+    await tester.tap(find.byTooltip('发送给 AI'));
+    await tester.pumpAndSettle();
+
+    expect(api.recordedText, '今天打车30元');
+    expect(controller.lastRecordedBill?.amount, 25);
+  });
+
+  testWidgets('home hides recent bill list', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(420, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final controller = AppController(
+      api: _FakeApiClient(),
+      prefs: await SharedPreferences.getInstance(),
+    );
+    await controller.refreshDashboard();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: HomeScreen(controller: controller)),
+      ),
+    );
+
+    expect(find.byType(BillTile), findsNothing);
+  });
 }
 
 class _FakeApiClient extends ApiClient {
   _FakeApiClient() : super(baseUrl: 'http://example.test');
 
   final Bill bill = _billFromJson(amount: 25, billType: 'expense');
+  String? recordedText;
 
   @override
-  Future<Bill> recordBillText(String text) async => bill;
+  Future<Bill> recordBillText(String text) async {
+    recordedText = text;
+    return bill;
+  }
 
   @override
   Future<DashboardStats> dashboard() async {

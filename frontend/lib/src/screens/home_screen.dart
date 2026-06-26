@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _speechReady = false;
   bool _listening = false;
   bool _submittingSpeech = false;
+  bool _manualInput = false;
   String _recognizedText = '';
   String? _voiceStatus;
 
@@ -128,22 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SectionGap(),
                 _AiResultCard(bill: lastRecordedBill),
               ],
-              if (data.recentBills.isNotEmpty) ...[
-                const SectionGap(),
-                Text(
-                  '最近记录',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ...data.recentBills.map(
-                  (bill) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: BillTile(bill: bill),
-                  ),
-                ),
-              ],
               const SizedBox(height: 96),
             ],
           ),
@@ -155,9 +140,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _VoiceComposer(
             busy: widget.controller.busy || _submittingSpeech,
             listening: _listening,
+            manualInput: _manualInput,
             recognizedText: _recognizedText,
             statusText: _voiceStatus,
+            textController: _textController,
             onTapVoice: _toggleVoiceInput,
+            onToggleManual: _toggleManualInput,
             onSubmit: _recordRecognizedText,
           ),
         ),
@@ -186,11 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
           );
       if (!mounted) return;
       if (!available) {
-        _showVoiceStatus('当前手机没有可用的语音识别服务');
+        _showVoiceStatus('当前手机没有可用的语音识别服务', showManualInput: true);
         return;
       }
 
       setState(() {
+        _manualInput = false;
         _speechReady = true;
         _listening = true;
         _recognizedText = '';
@@ -219,8 +208,22 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _listening = false);
-      _showVoiceStatus('语音识别启动失败：$error');
+      _showVoiceStatus('语音识别启动失败：$error', showManualInput: true);
     }
+  }
+
+  Future<void> _toggleManualInput() async {
+    if (_listening) {
+      await _speech.stop();
+    }
+    setState(() {
+      _manualInput = !_manualInput;
+      _voiceStatus = null;
+      if (!_manualInput) {
+        _recognizedText = '';
+        _textController.clear();
+      }
+    });
   }
 
   Future<String?> _preferredSpeechLocale() async {
@@ -282,6 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _textController.clear();
       if (!mounted) return;
       setState(() {
+        _manualInput = false;
         _recognizedText = '';
         _voiceStatus = null;
       });
@@ -296,8 +300,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showVoiceStatus(String message) {
-    setState(() => _voiceStatus = message);
+  void _showVoiceStatus(String message, {bool showManualInput = false}) {
+    setState(() {
+      _voiceStatus = message;
+      if (showManualInput) _manualInput = true;
+    });
     showAppMessage(context, message);
   }
 }
@@ -362,17 +369,23 @@ class _VoiceComposer extends StatelessWidget {
   const _VoiceComposer({
     required this.busy,
     required this.listening,
+    required this.manualInput,
     required this.recognizedText,
     required this.statusText,
+    required this.textController,
     required this.onTapVoice,
+    required this.onToggleManual,
     required this.onSubmit,
   });
 
   final bool busy;
   final bool listening;
+  final bool manualInput;
   final String recognizedText;
   final String? statusText;
+  final TextEditingController textController;
   final VoidCallback onTapVoice;
+  final VoidCallback onToggleManual;
   final VoidCallback onSubmit;
 
   @override
@@ -402,52 +415,94 @@ class _VoiceComposer extends StatelessWidget {
         child: Row(
           children: [
             IconButton.filled(
-              tooltip: listening ? '停止语音输入' : '开始语音输入',
+              tooltip: manualInput
+                  ? '切换语音输入'
+                  : listening
+                  ? '停止语音输入'
+                  : '开始语音输入',
               onPressed: busy ? null : onTapVoice,
-              icon: Icon(listening ? Icons.stop : Icons.mic),
+              icon: Icon(
+                manualInput
+                    ? Icons.mic
+                    : listening
+                    ? Icons.stop
+                    : Icons.mic,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: busy ? null : onTapVoice,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  height: 48,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  alignment: Alignment.centerLeft,
-                  decoration: BoxDecoration(
-                    color: statusText != null && statusText!.isNotEmpty
-                        ? AppColors.expense.withValues(alpha: 0.08)
-                        : listening
-                        ? AppColors.primary.withValues(alpha: 0.08)
-                        : const Color(0xFFF5F6F5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: statusText != null && statusText!.isNotEmpty
-                          ? AppColors.expense
-                          : listening
-                          ? AppColors.primary
-                          : AppColors.border,
+              child: manualInput
+                  ? SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: textController,
+                        enabled: !busy,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => busy ? null : onSubmit(),
+                        decoration: InputDecoration(
+                          hintText: '输入一句账单',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: '发送给 AI',
+                            onPressed: busy ? null : onSubmit,
+                            icon: const Icon(Icons.send),
+                          ),
+                        ),
+                      ),
+                    )
+                  : InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: busy ? null : onTapVoice,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          color: statusText != null && statusText!.isNotEmpty
+                              ? AppColors.expense.withValues(alpha: 0.08)
+                              : listening
+                              ? AppColors.primary.withValues(alpha: 0.08)
+                              : const Color(0xFFF5F6F5),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: statusText != null && statusText!.isNotEmpty
+                                ? AppColors.expense
+                                : listening
+                                ? AppColors.primary
+                                : AppColors.border,
+                          ),
+                        ),
+                        child: Text(
+                          text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color:
+                                    statusText != null && statusText!.isNotEmpty
+                                    ? AppColors.expense
+                                    : listening
+                                    ? AppColors.primaryDark
+                                    : AppColors.text,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: statusText != null && statusText!.isNotEmpty
-                          ? AppColors.expense
-                          : listening
-                          ? AppColors.primaryDark
-                          : AppColors.text,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
             ),
-            if (recognizedText.isNotEmpty && !listening) ...[
+            if (!manualInput) ...[
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                tooltip: '手动输入账单',
+                onPressed: busy ? null : onToggleManual,
+                icon: const Icon(Icons.keyboard),
+              ),
+            ],
+            if (recognizedText.isNotEmpty && !listening && !manualInput) ...[
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 tooltip: '发送给 AI',
