@@ -1,22 +1,52 @@
 {
-  "name": "AI智能记账",
-  "appid": "__UNI__AI_ACCOUNT_BOOK",
-  "description": "AI智能记账APP",
-  "versionName": "0.1.0",
-  "versionCode": "100",
-  "transformPx": false,
-  "h5": {
-    "title": "AI智能记账",
-    "router": {
-      "mode": "hash"
-    }
-  },
-  "mp-weixin": {
-    "appid": "",
-    "setting": {
-      "urlCheck": false
+    "name" : "AI智能记账",
+    "appid" : "__UNI__F187299",
+    "description" : "AI智能记账APP",
+    "versionName" : "0.1.0",
+    "versionCode" : "100",
+    "transformPx" : false,
+    "h5" : {
+        "title" : "AI智能记账",
+        "router" : {
+            "mode" : "hash"
+        }
     },
-    "usingComponents": true
-  },
-  "vueVersion": "3"
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        },
+        "usingComponents" : true
+    },
+    "vueVersion" : "3",
+    "app-plus" : {
+        "distribute" : {
+            "android" : {
+                "usesCleartextTraffic" : true,
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.RECORD_AUDIO\"/>"
+                ]
+            },
+            "ios" : {
+                "dSYMs" : false
+            },
+            "sdkConfigs" : {
+                "speech" : {
+                    "baidu" : {
+                        "appid" : "",
+                        "apikey" : "",
+                        "secretkey" : ""
+                    }
+                }
+            }
+        },
+        "uniStatistics" : {
+            "enable" : false
+        },
+        "modules" : {
+            "Speech" : {}
+        }
+    }
 }

@@ -91,6 +91,7 @@ const saving = ref(false)
 const voiceSupported = ref(false)
 let recognition = null
 let lastTouchAt = 0
+let manualStopPending = false
 
 const voiceDisplay = computed(() => {
   return [voiceText.value, interimText.value].filter(Boolean).join(' ').trim()
@@ -101,6 +102,121 @@ function money(value) {
 }
 
 function setupSpeechRecognition() {
+  // #ifdef APP-PLUS
+  setupAppSpeechRecognition()
+  // #endif
+
+  // #ifndef APP-PLUS
+  setupWebSpeechRecognition()
+  // #endif
+}
+
+function appendVoiceText(text) {
+  const normalized = `${text || ''}`.trim()
+  if (!normalized) return
+  const current = voiceText.value.trim()
+  if (!current || normalized.startsWith(current)) {
+    voiceText.value = normalized
+    return
+  }
+  if (!current.endsWith(normalized)) {
+    voiceText.value = `${current}${normalized}`
+  }
+}
+
+function finishRecognitionStatus() {
+  recording.value = false
+  interimText.value = ''
+  voiceStatus.value = voiceText.value ? '识别完成，可以入账' : '按住下方按钮开始语音记账'
+}
+
+function setupAppSpeechRecognition() {
+  runWhenPlusReady(() => {
+    if (typeof plus === 'undefined' || !plus.speech) {
+      voiceStatus.value = 'App 未启用语音模块，请重新打包'
+      voiceSupported.value = false
+      return
+    }
+
+    plus.speech.addEventListener('start', () => {
+      recording.value = true
+      manualStopPending = false
+      interimText.value = ''
+      voiceStatus.value = '正在听你说账单'
+    }, false)
+
+    plus.speech.addEventListener('recognizing', (event) => {
+      interimText.value = `${event && event.partialResult ? event.partialResult : ''}`.trim()
+    }, false)
+
+    plus.speech.addEventListener('recognition', (event) => {
+      appendVoiceText(event && event.result)
+      interimText.value = ''
+    }, false)
+
+    plus.speech.addEventListener('end', () => {
+      manualStopPending = false
+      finishRecognitionStatus()
+    }, false)
+
+    recognition = {
+      start() {
+        manualStopPending = false
+        recording.value = true
+        interimText.value = ''
+        voiceStatus.value = '正在听你说账单'
+        plus.speech.startRecognize({
+          lang: 'zh-cn',
+          userInterface: false,
+          continue: true
+        }, (text) => {
+          appendVoiceText(text)
+        }, (error) => {
+          handleAppSpeechError(error)
+        })
+      },
+      stop() {
+        manualStopPending = true
+        plus.speech.stopRecognize()
+      }
+    }
+    voiceSupported.value = true
+    voiceStatus.value = '按住下方按钮开始语音记账'
+  })
+}
+
+function runWhenPlusReady(callback) {
+  if (typeof plus !== 'undefined') {
+    callback()
+    return
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('plusready', callback, false)
+    return
+  }
+  voiceStatus.value = 'App 语音模块初始化失败'
+}
+
+function handleAppSpeechError(error) {
+  const message = `${(error && (error.message || error.code)) || ''}`.trim()
+  recording.value = false
+  interimText.value = ''
+  if (manualStopPending && voiceText.value) {
+    manualStopPending = false
+    voiceStatus.value = '识别完成，可以入账'
+    return
+  }
+  manualStopPending = false
+  if (!message) {
+    voiceStatus.value = '语音识别失败，请重试'
+    return
+  }
+  voiceStatus.value = /permission|denied|auth|record/i.test(message)
+    ? '麦克风权限或语音服务未开启'
+    : `语音识别失败：${message}`
+}
+
+function setupWebSpeechRecognition() {
   if (typeof window === 'undefined') {
     voiceStatus.value = '当前环境不支持语音识别'
     return
@@ -160,6 +276,8 @@ function startVoice() {
   try {
     recognition.start()
   } catch (error) {
+    recording.value = false
+    manualStopPending = false
     voiceStatus.value = '语音识别启动失败'
     uni.showToast({ title: error.message || '语音识别启动失败', icon: 'none' })
   }
@@ -168,7 +286,13 @@ function startVoice() {
 function stopVoice() {
   lastTouchAt = Date.now()
   if (recognition && recording.value) {
-    recognition.stop()
+    try {
+      recognition.stop()
+    } catch (error) {
+      recording.value = false
+      manualStopPending = false
+      voiceStatus.value = '语音识别停止失败'
+    }
   }
 }
 
