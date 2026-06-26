@@ -51,10 +51,18 @@ def continuous_bill_days(db: Session, user_id: int) -> int:
     rows = db.execute(
         select(func.date(Bill.bill_time)).where(Bill.user_id == user_id).group_by(func.date(Bill.bill_time))
     ).all()
-    days = {date.fromisoformat(row[0]) for row in rows if row[0]}
+    days = {_coerce_date(row[0]) for row in rows if row[0]}
     cursor = date.today()
     count = 0
     while cursor in days:
         count += 1
         cursor -= timedelta(days=1)
     return count
+
+
+def _coerce_date(value) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))

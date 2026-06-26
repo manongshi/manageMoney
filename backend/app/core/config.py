@@ -13,12 +13,19 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7
     cors_origins: str = "*"
     ai_provider: str = "local"
+    speech_provider: str = "xfyun"
     openai_api_key: str | None = None
     openai_base_url: str = "https://api.openai.com/v1"
     openai_audio_model: str = "gpt-4o-mini-transcribe"
     deepseek_api_key: str | None = None
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_model: str = "deepseek-v4-flash"
+    xfyun_app_id: str | None = None
+    xfyun_secret_key: str | None = None
+    xfyun_base_url: str = "https://raasr.xfyun.cn/v2/api"
+    xfyun_audio_duration_ms: int = 200
+    xfyun_poll_interval_seconds: float = 3
+    xfyun_max_poll_attempts: int = 60
     voice_upload_dir: str = "uploads/voice"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

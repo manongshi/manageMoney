@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -369,3 +369,39 @@ def test_deepseek_parser_reads_chat_json(monkeypatch):
     assert captured["headers"]["Authorization"] == "Bearer deepseek-key"
     assert captured["json"]["model"] == "deepseek-v4-flash"
     assert captured["json"]["response_format"] == {"type": "json_object"}
+
+
+def test_continuous_bill_days_accepts_database_date_objects():
+    from app.services.statistics_service import continuous_bill_days
+
+    class FakeRows:
+        def all(self):
+            return [
+                (date.today(),),
+                (date.today() - timedelta(days=1),),
+            ]
+
+    class FakeDb:
+        def execute(self, statement):
+            _ = statement
+            return FakeRows()
+
+    assert continuous_bill_days(FakeDb(), 1) == 2
+
+
+def test_continuous_bill_days_accepts_database_datetime_objects():
+    from app.services.statistics_service import continuous_bill_days
+
+    class FakeRows:
+        def all(self):
+            return [
+                (datetime.combine(date.today(), datetime.min.time()),),
+                (datetime.combine(date.today() - timedelta(days=1), datetime.min.time()),),
+            ]
+
+    class FakeDb:
+        def execute(self, statement):
+            _ = statement
+            return FakeRows()
+
+    assert continuous_bill_days(FakeDb(), 1) == 2
