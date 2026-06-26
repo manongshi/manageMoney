@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _listening = false;
   bool _submittingSpeech = false;
   String _recognizedText = '';
+  String? _voiceStatus;
 
   @override
   void dispose() {
@@ -155,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
             busy: widget.controller.busy || _submittingSpeech,
             listening: _listening,
             recognizedText: _recognizedText,
+            statusText: _voiceStatus,
             onTapVoice: _toggleVoiceInput,
             onSubmit: _recordRecognizedText,
           ),
@@ -177,11 +179,14 @@ class _HomeScreenState extends State<HomeScreen> {
           await _speech.initialize(
             onStatus: _handleSpeechStatus,
             onError: _handleSpeechError,
-            options: [speech.SpeechToText.androidNoBluetooth],
+            options: [
+              speech.SpeechToText.androidNoBluetooth,
+              speech.SpeechToText.androidIntentLookup,
+            ],
           );
       if (!mounted) return;
       if (!available) {
-        showAppMessage(context, '当前设备不可用语音识别');
+        _showVoiceStatus('当前手机没有可用的语音识别服务');
         return;
       }
 
@@ -189,10 +194,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _speechReady = true;
         _listening = true;
         _recognizedText = '';
+        _voiceStatus = null;
       });
       _textController.clear();
 
       final localeId = await _preferredSpeechLocale();
+      if (mounted && localeId == null) {
+        setState(() => _voiceStatus = '使用系统默认语音语言');
+      }
 
       await _speech.listen(
         onResult: _handleSpeechResult,
@@ -210,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _listening = false);
-      showAppMessage(context, '语音识别启动失败：$error');
+      _showVoiceStatus('语音识别启动失败：$error');
     }
   }
 
@@ -234,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _recognizedText = words;
       _textController.text = words;
+      _voiceStatus = null;
     });
 
     if (result.finalResult) {
@@ -257,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleSpeechError(SpeechRecognitionError error) {
     if (!mounted) return;
     setState(() => _listening = false);
-    showAppMessage(context, '语音识别失败：${error.errorMsg}');
+    _showVoiceStatus('语音识别失败：${error.errorMsg}');
   }
 
   Future<void> _recordRecognizedText() async {
@@ -271,7 +281,10 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.controller.recordTextBill(text);
       _textController.clear();
       if (!mounted) return;
-      setState(() => _recognizedText = '');
+      setState(() {
+        _recognizedText = '';
+        _voiceStatus = null;
+      });
       showAppMessage(context, '已入账');
     } catch (error) {
       if (!mounted) return;
@@ -281,6 +294,11 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _submittingSpeech = false);
       }
     }
+  }
+
+  void _showVoiceStatus(String message) {
+    setState(() => _voiceStatus = message);
+    showAppMessage(context, message);
   }
 }
 
@@ -345,6 +363,7 @@ class _VoiceComposer extends StatelessWidget {
     required this.busy,
     required this.listening,
     required this.recognizedText,
+    required this.statusText,
     required this.onTapVoice,
     required this.onSubmit,
   });
@@ -352,12 +371,15 @@ class _VoiceComposer extends StatelessWidget {
   final bool busy;
   final bool listening;
   final String recognizedText;
+  final String? statusText;
   final VoidCallback onTapVoice;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
-    final text = recognizedText.isNotEmpty
+    final text = statusText != null && statusText!.isNotEmpty
+        ? statusText!
+        : recognizedText.isNotEmpty
         ? recognizedText
         : listening
         ? '正在听...'
@@ -395,12 +417,18 @@ class _VoiceComposer extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   alignment: Alignment.centerLeft,
                   decoration: BoxDecoration(
-                    color: listening
+                    color: statusText != null && statusText!.isNotEmpty
+                        ? AppColors.expense.withValues(alpha: 0.08)
+                        : listening
                         ? AppColors.primary.withValues(alpha: 0.08)
                         : const Color(0xFFF5F6F5),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: listening ? AppColors.primary : AppColors.border,
+                      color: statusText != null && statusText!.isNotEmpty
+                          ? AppColors.expense
+                          : listening
+                          ? AppColors.primary
+                          : AppColors.border,
                     ),
                   ),
                   child: Text(
@@ -408,7 +436,11 @@ class _VoiceComposer extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: listening ? AppColors.primaryDark : AppColors.text,
+                      color: statusText != null && statusText!.isNotEmpty
+                          ? AppColors.expense
+                          : listening
+                          ? AppColors.primaryDark
+                          : AppColors.text,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
