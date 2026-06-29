@@ -16,7 +16,6 @@
 - Faster-whisper（可选，本地语音识别）
 - uvicorn
 
-
 # 二、运行
 ## 后端
 
@@ -34,6 +33,4 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 flutter pub get
 flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000
 ```
-
-
 
